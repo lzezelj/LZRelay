@@ -1,4 +1,5 @@
 "use client";
+import { RateLimitButton } from "../rate-limit-controls";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useDebouncedSearch } from "../use-search-debounce";
@@ -436,7 +437,8 @@ export function AdminDashboard() {
             >
               Cancel
             </button>
-            <button
+            <RateLimitButton
+              scope="admin-mutation"
               type="button"
               disabled={busy}
               onClick={async () => {
@@ -458,7 +460,7 @@ export function AdminDashboard() {
               }}
             >
               {busy ? "Saving…" : "Confirm"}
-            </button>
+            </RateLimitButton>
           </div>
         </SettingsModal>
       )}

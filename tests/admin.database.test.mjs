@@ -23,6 +23,13 @@ async function moduleAt(path, dependencies) {
     {
       exports,
       require: (name) => {
+        if (name.endsWith("/server-activity"))
+          return {
+            recordServerActivity: async () => {},
+            recordDemoAccessChanges: async () => {},
+          };
+        if (name.endsWith("/server-activity-types"))
+          return { activityLabels: {} };
         assert.ok(name in dependencies, name);
         return dependencies[name];
       },

@@ -159,6 +159,8 @@ function createHandler({
           throw new Error("Extension must not disconnect the demo user");
         },
       };
+    if (name.endsWith("/server-activity"))
+      return { recordDemoAccessChanges: async () => {} };
     throw new Error(`Unexpected import: ${name}`);
   };
   vm.runInNewContext(compiled, { require, exports, Request, Response, Date });

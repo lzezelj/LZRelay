@@ -102,6 +102,7 @@ async function mutateChannel(
       "channel",
       String(row.id),
       { serverId, channelId: String(row.id) },
+      { name: String(row.name), type: String(row.type) },
     );
     return row;
   });

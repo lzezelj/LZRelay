@@ -1,4 +1,5 @@
 "use client";
+import { RateLimitButton, useRateLimit } from "./rate-limit-controls";
 import { LoadingSkeleton } from "./loading-skeleton";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
@@ -31,6 +32,7 @@ export function useSoundboard(
     onPlayingChange?: (playing: boolean) => void;
   } = {},
 ) {
+  const playLimit = useRateLimit("soundboard-play");
   const player = useRef<SoundPlayer | null>(null);
   const joinPlayer = useRef<ServerJoinSound | null>(null);
   const { serverId, outputVolume, outputId, deafened } = options;
@@ -113,6 +115,7 @@ export function useSoundboard(
   }, [options.microphoneMuted]);
   const cooldown = useRef(new SoundCooldown());
   const cooldownPolicy = useRef({ serverId, enabled: true });
+  const [policyState, setPolicyState] = useState({ serverId, enabled: true });
   const policyVersion = useSoundboardRefresh(serverId);
   const cooldownTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [playBlocked, setPlayBlocked] = useState(false);
@@ -132,6 +135,7 @@ export function useSoundboard(
             serverId,
             enabled: data.soundboardCooldownEnabled !== false,
           };
+          setPolicyState(cooldownPolicy.current);
           if (data.soundboardCooldownEnabled === false) {
             if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
             setPlayBlocked(false);
@@ -152,6 +156,7 @@ export function useSoundboard(
       !cooldownPolicy.current.enabled
     )
       return true;
+    if (playLimit.blocked()) return false;
     if (!cooldown.current.take()) return false;
     setPlayBlocked(true);
     cooldownTimer.current = setTimeout(() => setPlayBlocked(false), 1000);
@@ -257,6 +262,7 @@ export function useSoundboard(
           `/api/servers/${serverId}/soundboard/play?clip=${encodeURIComponent(clipId)}`,
           { method: "POST" },
         );
+        playLimit.observe(permit);
         if (!permit.ok) {
           const result = await permit.json();
           throw new Error(result.error ?? "The sound could not be played");
@@ -317,7 +323,11 @@ export function useSoundboard(
     setVolume,
     muted,
     setMuted,
-    playBlocked,
+    cooldownEnabled: policyState.serverId !== serverId || policyState.enabled,
+    playBlocked:
+      playBlocked ||
+      ((policyState.serverId !== serverId || policyState.enabled) &&
+        playLimit.seconds > 0),
     reservePlay,
     previewOutput: {
       outputVolume: ((options.outputVolume ?? 100) * volume) / 100,
@@ -483,7 +493,11 @@ export function SoundboardButton({
             {!loading &&
               visibleSounds.map((sound) => (
                 <div className="soundboardClip" key={sound.id}>
-                  <button
+                  <RateLimitButton
+                    scope={
+                      board.cooldownEnabled ? "soundboard-play" : undefined
+                    }
+                    cooldownSeconds={board.playBlocked ? 1 : 0}
                     className="soundboardPlay"
                     disabled={disabled || playing || board.playBlocked}
                     aria-label={`Play ${sound.name} for everyone`}
@@ -497,7 +511,7 @@ export function SoundboardButton({
                     <span className="soundName" title={sound.name}>
                       {sound.name}
                     </span>
-                  </button>
+                  </RateLimitButton>
                   <div className="soundboardClipActions">
                     <button
                       disabled={playing}

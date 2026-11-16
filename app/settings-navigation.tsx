@@ -6,12 +6,14 @@ export function SettingsNavigation({
   onSelect,
   owner = false,
   canUploadSounds = false,
+  canViewActivity = false,
 }: {
   account: boolean;
   selected: string;
   onSelect: (section: string) => void;
   owner?: boolean;
   canUploadSounds?: boolean;
+  canViewActivity?: boolean;
 }) {
   const groups = account
     ? [
@@ -49,6 +51,7 @@ export function SettingsNavigation({
                 "join-sound",
                 canUploadSounds ? "Soundboard" : "Voice channel sounds",
               ],
+              ...(canViewActivity ? [["activity", "Activity log"]] : []),
             ],
           },
         ]
@@ -69,7 +72,13 @@ export function SettingsNavigation({
               ["invite-people", "Invite people"],
             ],
           },
-          { label: "Administration", items: [["delete", "Delete server"]] },
+          {
+            label: "Administration",
+            items: [
+              ["activity", "Activity log"],
+              ["delete", "Delete server"],
+            ],
+          },
         ];
   return (
     <>

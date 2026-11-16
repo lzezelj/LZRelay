@@ -54,6 +54,8 @@ import { PersonalMessages } from "./personal-messages.js";
 import { SessionCache } from "./conversation-cache.js";
 import { AccountDeletion } from "./account-deletion.js";
 import { SettingsMembers } from "./settings-members.js";
+import { ServerActivity } from "./server-activity.js";
+import { RateLimitProvider, RateLimitButton } from "./rate-limit-controls.js";
 import { revealSettingsSection } from "./settings-reveal.js";
 import { StreamVolume } from "./stream-volume.js";
 import {
@@ -635,7 +637,303 @@ window.verifyParticipantAudio = async () => {
   };
 };
 
+async function verifyServerActivity() {
+  const host = document.createElement("div");
+  host.className = "settingsContent";
+  document.body.append(host);
+  const root = createRoot(host),
+    original = window.fetch;
+  const portrait =
+    "data:image/svg+xml," +
+    encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="blue"/></svg>',
+    );
+  let forbidden = false;
+  let brokenResponse = false;
+  const row = {
+    id: "a",
+    actorId: "owner",
+    actorName: "Owner",
+    actorImage: portrait,
+    action: "voice.move",
+    targetType: "user",
+    targetId: "member",
+    targetName: "Member",
+    targetImage: portrait,
+    createdAt: new Date().toISOString(),
+    details: { channelId: "from", destinationId: "to" },
+    references: { from: "Lounge", to: "AFK" },
+  };
+  window.fetch = async (url) => {
+    check(
+      String(url).startsWith("/api/servers/activity-test/activity"),
+      "Activity uses the server-scoped API",
+    );
+    if (brokenResponse)
+      return {
+        ok: false,
+        json: async () => {
+          throw new SyntaxError("Unexpected end of JSON input");
+        },
+      };
+    if (forbidden)
+      return { ok: false, json: async () => ({ error: "Forbidden" }) };
+    const older = String(url).includes("?before=");
+    return {
+      ok: true,
+      json: async () => ({
+        entries: [{ ...row, id: older ? "b" : "a" }],
+        next: older ? null : { before: row.createdAt, id: "a" },
+      }),
+    };
+  };
+  try {
+    flushSync(() =>
+      root.render(
+        h(SettingsNavigation, {
+          account: false,
+          owner: false,
+          canUploadSounds: true,
+          canViewActivity: true,
+          selected: "activity",
+          onSelect() {},
+        }),
+      ),
+    );
+    check(
+      host.textContent.includes("Activity log") &&
+        !host.textContent.includes("Delete server") &&
+        !host.textContent.includes("Members"),
+      "Moderators see activity without owner management controls",
+    );
+    flushSync(() =>
+      root.render(h(ServerActivity, { serverId: "activity-test" })),
+    );
+    await wait();
+    await wait();
+    check(
+      host.textContent.includes("Delivered a voice move request") &&
+        host.textContent.includes("Lounge") &&
+        host.textContent.includes("AFK"),
+      "Activity displays actions and channel names",
+    );
+    check(
+      host.querySelectorAll(".serverActivityRow img").length === 2,
+      "Both activity identities use their profile pictures",
+    );
+    [...host.querySelectorAll("button")]
+      .find((button) => button.textContent === "Load older entries")
+      .click();
+    await wait();
+    check(
+      host.querySelectorAll(".serverActivityRow").length === 2,
+      "Older activity appends without losing the current page",
+    );
+    forbidden = true;
+    [...host.querySelectorAll("button")]
+      .find((button) => button.textContent === "Refresh")
+      .click();
+    await wait();
+    check(
+      !host.querySelector(".serverActivityRow") &&
+        host.textContent.includes("Forbidden"),
+      "Access revocation clears privileged activity",
+    );
+    forbidden = false;
+    brokenResponse = true;
+    [...host.querySelectorAll("button")]
+      .find((button) => button.textContent === "Refresh")
+      .click();
+    await wait();
+    check(
+      host.textContent.includes("Activity could not be loaded") &&
+        !host.textContent.includes("JSON"),
+      "Empty server failures display a readable retry message",
+    );
+    flushSync(() =>
+      root.render(
+        h(SettingsMembers, {
+          members: [
+            { id: "member", name: "Member", role: "member", image: portrait },
+          ],
+          currentUserId: "owner",
+        }),
+      ),
+    );
+    check(
+      host.querySelector(".settingsMemberRow img")?.getAttribute("src") ===
+        portrait,
+      "Member settings use the profile picture",
+    );
+  } finally {
+    root.unmount();
+    host.remove();
+    window.fetch = original;
+  }
+}
+
+async function verifyRateLimitedActions() {
+  const host = document.createElement("div");
+  host.className = "settingsContent";
+  document.body.append(host);
+  const root = createRoot(host),
+    originalFetch = window.fetch;
+  let requests = 0,
+    deny = true;
+  window.fetch = async () => {
+    requests++;
+    return new Response("{}", {
+      status: deny ? 429 : 200,
+      headers: { "Retry-After": "2" },
+    });
+  };
+  function MountRequest() {
+    useEffect(() => {
+      void fetch("/api/servers/test/activity");
+    }, []);
+    return h(
+      RateLimitButton,
+      { scope: "server-activity", "data-test": "mount-fetch" },
+      "Refresh activity",
+    );
+  }
+  function Panel({ accountId, shown, mountRequest }) {
+    return h(
+      RateLimitProvider,
+      { accountId },
+      shown &&
+        h(
+          "section",
+          null,
+          h(
+            RateLimitButton,
+            {
+              scope: "server-mutation",
+              "data-test": "limited",
+              onClick: () => void fetch("/api/servers", { method: "POST" }),
+            },
+            "Create server",
+          ),
+          h(
+            RateLimitButton,
+            { scope: "server-mutation", "data-test": "shared" },
+            "Change another server",
+          ),
+          h(
+            RateLimitButton,
+            { scope: "soundboard", "data-test": "unrelated" },
+            "Add sound",
+          ),
+          h("button", { "data-test": "cancel" }, "Cancel"),
+          mountRequest && h(MountRequest),
+        ),
+    );
+  }
+  const render = (accountId = "one", shown = true, mountRequest = false) =>
+    flushSync(() => root.render(h(Panel, { accountId, shown, mountRequest })));
+  try {
+    render();
+    await wait();
+    const originalButtonWidth = host
+      .querySelector('[data-test="limited"]')
+      .getBoundingClientRect().width;
+    host.querySelector('[data-test="limited"]').click();
+    await wait();
+    check(
+      host.querySelector('[data-test="limited"]').disabled &&
+        host.querySelector('[data-test="shared"]').disabled,
+      `Related server actions share the known retry deadline: ${JSON.stringify({ requests, location: location.href, text: host.textContent })}`,
+    );
+    check(
+      host.querySelector('[data-test="limited"] .rateLimitCountdown')
+        ?.textContent === "2s",
+      "Limited action displays its countdown",
+    );
+    const blockedBounds = host
+      .querySelector('[data-test="limited"]')
+      .getBoundingClientRect();
+    const timerBounds = host
+      .querySelector('[data-test="limited"] .rateLimitCountdown')
+      .getBoundingClientRect();
+    check(
+      Math.abs(blockedBounds.width - originalButtonWidth) < 1 &&
+        Math.abs(
+          (timerBounds.left + timerBounds.right) / 2 -
+            (blockedBounds.left + blockedBounds.right) / 2,
+        ) < 1 &&
+        Math.abs(
+          (timerBounds.top + timerBounds.bottom) / 2 -
+            (blockedBounds.top + blockedBounds.bottom) / 2,
+        ) < 1,
+      "Countdown covers the center of the button without changing its width",
+    );
+    check(
+      !document.querySelector(".rateLimitNotice"),
+      "Limited actions do not show a floating notice",
+    );
+    check(
+      !host.querySelector('[data-test="unrelated"]').disabled &&
+        !host.querySelector('[data-test="cancel"]').disabled,
+      "Unrelated actions and Cancel remain available",
+    );
+    host.querySelector('[data-test="limited"]').click();
+    await wait();
+    check(requests === 1, "Blocked action does not send again");
+    render("one", false);
+    await wait();
+    render("one", true);
+    await wait();
+    check(
+      host.querySelector('[data-test="limited"]').disabled,
+      "Closing and reopening controls retains the known limit",
+    );
+    await new Promise((resolve) => setTimeout(resolve, 2150));
+    check(
+      !host.querySelector('[data-test="limited"]').disabled && requests === 1,
+      "Countdown expires without automatically replaying the action",
+    );
+    deny = false;
+    host.querySelector('[data-test="limited"]').click();
+    await wait();
+    check(requests === 2, "User can retry once the countdown expires");
+    deny = true;
+    host.querySelector('[data-test="limited"]').click();
+    await wait();
+    check(
+      host.querySelector('[data-test="limited"]').disabled,
+      "A later server rejection starts a new wait",
+    );
+    render("two");
+    await wait();
+    check(
+      !host.querySelector('[data-test="limited"]').disabled,
+      "A different account does not inherit the previous account’s limit",
+    );
+    await fetch("https://other.invalid/api/servers", { method: "POST" });
+    await wait();
+    check(
+      !host.querySelector('[data-test="limited"]').disabled,
+      "Foreign-origin responses cannot lock local actions",
+    );
+    render("three", true, true);
+    await wait();
+    check(
+      host.querySelector('[data-test="mount-fetch"]').disabled &&
+        host.querySelector('[data-test="mount-fetch"] .rateLimitCountdown')
+          ?.textContent === "2s",
+      "Initial child-effect requests are observed before their first rejection",
+    );
+  } finally {
+    root.unmount();
+    host.remove();
+    window.fetch = originalFetch;
+  }
+}
+
 window.verifyServerInvitations = async () => {
+  await verifyRateLimitedActions();
+  await verifyMessageCooldown();
+  await verifyServerActivity();
   await verifyServerPictureLoading();
   await verifyServerLeaveConfirmation();
   await verifyInvitesAndReveal();
@@ -1836,10 +2134,15 @@ window.verifyMessageComposer = async () => {
     emojiSearch.dispatchEvent(new Event("input", { bubbles: true }));
     await wait();
     document.querySelector('[aria-label="💙 blue heart"]').click();
-    await wait();
+    const caretDeadline = performance.now() + 1000;
+    while (
+      (textarea.value !== "a💙b" || textarea.selectionStart !== 3) &&
+      performance.now() < caretDeadline
+    )
+      await wait();
     check(
       textarea.value === "a💙b" && textarea.selectionStart === 3,
-      "Emoji insertion must preserve the caret and surrounding text",
+      `Emoji insertion must preserve the caret and surrounding text: ${JSON.stringify({ value: textarea.value, caret: textarea.selectionStart })}`,
     );
     check(
       !document.querySelector(".emojiPopover"),
@@ -2226,6 +2529,12 @@ async function verifyParticipantControls() {
     check(
       settings.values.alice.muted && settings.values.alice.volume === 35,
       "Muting preserves the selected person volume",
+    );
+    check(
+      [...host.querySelectorAll(".participantAudioActions button")].every(
+        (button) => button.disabled,
+      ) && host.querySelector(".rateLimitCountdown")?.textContent === "1s",
+      "Personal audio controls show their shared cooldown immediately",
     );
     check(
       host.querySelector('[aria-label="Muted for you"]'),
@@ -2746,14 +3055,22 @@ async function verifyEmojiReactions() {
         !host.querySelector(".reactionRemove"),
         "Reaction chips open details instead of displaying a removal X",
       );
-      const messageBottom = host
-        .querySelector("article")
-        .getBoundingClientRect().bottom;
-      const visibleBottom =
-        host.getBoundingClientRect().top + host.clientTop + host.clientHeight;
+      const geometry = () => ({
+        messageBottom: host.querySelector("article").getBoundingClientRect()
+          .bottom,
+        visibleBottom:
+          host.getBoundingClientRect().top + host.clientTop + host.clientHeight,
+      });
+      const scrollDeadline = performance.now() + 1000;
+      while (
+        geometry().messageBottom > geometry().visibleBottom + 1 &&
+        performance.now() < scrollDeadline
+      )
+        await wait();
+      const { messageBottom, visibleBottom } = geometry();
       check(
         messageBottom <= visibleBottom + 1 && window.scrollY === pageScroll,
-        "Growing reactions remain visible by scrolling only the chat pane",
+        `Growing reactions remain visible by scrolling only the chat pane: ${JSON.stringify({ messageBottom, visibleBottom, pageScroll, scrollY: window.scrollY })}`,
       );
       check(
         !host.querySelector('[role="menu"]'),
@@ -5356,7 +5673,8 @@ async function verifySoundboard() {
       '[aria-label="Play Celebrate for everyone"]',
     );
     check(
-      playButton.disabled && playButton.title === "One sound per second",
+      playButton.disabled &&
+        playButton.querySelector(".rateLimitCountdown")?.textContent === "1s",
       "Call playback must show a one-second cooldown",
     );
     playButton.click();
@@ -5926,9 +6244,9 @@ async function verifyMessageCooldown() {
       h("input", { defaultValue: "Keep this draft" }),
       ...["channel", "dm"].map((key) =>
         h(
-          "button",
-          { key, disabled: cooldown.seconds > 0 },
-          cooldown.seconds ? `Wait ${cooldown.seconds}s` : "Send",
+          RateLimitButton,
+          { key, scope: "message", disabled: cooldown.seconds > 0 },
+          "Send",
         ),
       ),
     );
@@ -5939,7 +6257,9 @@ async function verifyMessageCooldown() {
   await wait();
   check(
     [...container.querySelectorAll("button")].every(
-      (button) => button.disabled && button.textContent === "Wait 2s",
+      (button) =>
+        button.disabled &&
+        button.querySelector(".rateLimitCountdown")?.textContent === "2s",
     ),
     "Rate limiting must disable both send buttons with the server countdown",
   );
@@ -5953,7 +6273,7 @@ async function verifyMessageCooldown() {
   );
   await new Promise((resolve) => setTimeout(resolve, 1100));
   check(
-    container.querySelector("button").textContent === "Wait 1s",
+    container.querySelector("button .rateLimitCountdown")?.textContent === "1s",
     "Countdown must decrease",
   );
   await new Promise((resolve) => setTimeout(resolve, 1100));
@@ -6666,7 +6986,7 @@ async function verifyInvitesAndReveal() {
       "Remote people searches must wait for three characters",
     );
     await type("ale");
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    await new Promise((resolve) => setTimeout(resolve, 650));
     check(
       searches.length === 1 &&
         container.querySelector(".friendPickerRow b").textContent === "Alex",

@@ -234,7 +234,11 @@ Messages, conversation headers, friends and user lists do not display these icon
 
 Personal audio and owner-only server mute/deafen use the shared participant menu
 in both voice lists and All users. Microphone/deafen actions and equivalent menu
-toggles share a 750 ms browser cooldown before side effects. Server policy remains
+toggles share a 750 ms browser cooldown before side effects.
+These controls show a shared disabled state and countdown badge
+during that guard; the underlying `takeVoiceToggle` check remains in place for
+programmatic callers. Server voice controls additionally reflect API retry times.
+Server policy remains
 enforced by the existing authenticated owner-only API and SFU permissions.
 Camera mirroring is a saved browser preference shared across direct, group and
 settings previews. Camera device/resolution/frame-rate dropdowns are adjacent,

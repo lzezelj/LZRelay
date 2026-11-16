@@ -1,6 +1,7 @@
 "use client";
 import { InformationHint } from "./information-hint";
 import { useState } from "react";
+import { useRateLimit } from "./rate-limit-controls";
 
 export function ServerAfkSettings({
   serverId,
@@ -13,6 +14,7 @@ export function ServerAfkSettings({
   channels: { id: string; name: string; type: string }[];
   onSaved: (channelId: string | null) => void;
 }) {
+  const limit = useRateLimit("server-mutation");
   const [saving, setSaving] = useState(false),
     [error, setError] = useState("");
   async function save(value: string) {
@@ -51,7 +53,8 @@ export function ServerAfkSettings({
         Move inactive users (after 15 minutes) to
         <select
           aria-label="AFK channel"
-          disabled={saving}
+          disabled={saving || limit.seconds > 0}
+          title={limit.seconds ? `Available in ${limit.seconds}s` : undefined}
           value={channelId ?? ""}
           onChange={(event) => void save(event.target.value)}
         >
@@ -65,6 +68,7 @@ export function ServerAfkSettings({
             ))}
           <option value="create">Create an AFK channel…</option>
         </select>
+        {limit.seconds > 0 && <small>Try again in {limit.seconds}s.</small>}
       </label>
       {error && <p role="alert">{error}</p>}
     </section>

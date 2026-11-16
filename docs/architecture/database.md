@@ -1,5 +1,11 @@
 # Database and persistence
 
+`server_activity` (migration `0034_server_activity`) owns the server-scoped
+90-day moderation history, separate from `admin_audit_log`. Its records cascade
+on server deletion; user IDs are intentionally not foreign keys. Details,
+access rules and retention are owned by
+[server activity](servers-and-presence.md#server-activity-history).
+
 Durable storage ownership, schema/migration entry points and the location of feature-specific persistence contracts.
 
 Direct-message rows also identify durable conversation peers independently of

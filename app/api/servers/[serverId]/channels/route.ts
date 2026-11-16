@@ -10,6 +10,7 @@ import {
 } from "../../../../../server/rate-limit";
 import { notifyServer } from "../../../../../server/notify-server";
 import { removeChannelMedia } from "../../../../../server/remove-channel-media";
+import { recordServerActivity } from "../../../../../server/server-activity";
 
 async function membership(userId: string, serverId: string) {
   const [result] = await db
@@ -85,10 +86,40 @@ export async function POST(
       { error: "Valid name and channel type are required" },
       { status: 400 },
     );
-  const [channel] = await db
-    .insert(channels)
-    .values({ serverId, name, type: body.type! })
-    .returning();
+  const channel = await db.transaction(async (tx) => {
+    await tx
+      .select({ id: servers.id })
+      .from(servers)
+      .where(eq(servers.id, serverId))
+      .for("update");
+    const [current] = await tx
+      .select({ role: serverMembers.role })
+      .from(serverMembers)
+      .where(
+        and(
+          eq(serverMembers.serverId, serverId),
+          eq(serverMembers.userId, session.user.id),
+        ),
+      )
+      .for("update");
+    if (current?.role !== "owner") return null;
+    const [created] = await tx
+      .insert(channels)
+      .values({ serverId, name, type: body.type! })
+      .returning();
+    await recordServerActivity(
+      tx,
+      serverId,
+      session.user.id,
+      "channel.create",
+      "channel",
+      created.id,
+      { name, type: created.type },
+    );
+    return created;
+  });
+  if (!channel)
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   await notifyServer(serverId);
   return NextResponse.json(channel, { status: 201 });
 }
@@ -109,13 +140,50 @@ export async function PATCH(
       { error: "Channel name must be 1-60 characters" },
       { status: 400 },
     );
-  const [channel] = await db
-    .update(channels)
-    .set({ name })
-    .where(
-      and(eq(channels.id, body.channelId), eq(channels.serverId, serverId)),
-    )
-    .returning();
+  const channel = await db.transaction(async (tx) => {
+    await tx
+      .select({ id: servers.id })
+      .from(servers)
+      .where(eq(servers.id, serverId))
+      .for("update");
+    const [current] = await tx
+      .select({ role: serverMembers.role })
+      .from(serverMembers)
+      .where(
+        and(
+          eq(serverMembers.serverId, serverId),
+          eq(serverMembers.userId, session.user.id),
+        ),
+      )
+      .for("update");
+    if (current?.role !== "owner") return null;
+    const [previous] = await tx
+      .select({ name: channels.name })
+      .from(channels)
+      .where(
+        and(eq(channels.id, body.channelId!), eq(channels.serverId, serverId)),
+      )
+      .for("update");
+    if (!previous) return null;
+    const [updated] = await tx
+      .update(channels)
+      .set({ name })
+      .where(
+        and(eq(channels.id, body.channelId!), eq(channels.serverId, serverId)),
+      )
+      .returning();
+    if (previous.name !== name)
+      await recordServerActivity(
+        tx,
+        serverId,
+        session.user.id,
+        "channel.rename",
+        "channel",
+        updated.id,
+        { name, previousName: previous.name },
+      );
+    return updated;
+  });
   if (!channel)
     return NextResponse.json({ error: "Channel not found" }, { status: 404 });
   void notifyServer(serverId);
@@ -183,6 +251,16 @@ export async function DELETE(
         and(eq(channels.id, body.channelId!), eq(channels.serverId, serverId)),
       )
       .returning();
+    if (removed)
+      await recordServerActivity(
+        tx,
+        serverId,
+        session.user.id,
+        "channel.delete",
+        "channel",
+        removed.id,
+        { name: removed.name, type: removed.type },
+      );
     return removed;
   });
   if (!channel)

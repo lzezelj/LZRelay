@@ -6,6 +6,37 @@ Workspace restoration/caching, profiles, settings, help, loading, panels, resizi
 
 ## Shared controls and search behavior
 
+Rate-limited actions use `RateLimitButton` from `rate-limit-controls.tsx`: native
+disabled state, shared grey styling and a centered remaining-wait overlay. The
+account-scoped provider owns an in-memory deadline registry across panels and
+servers. The provider observes same-origin API fetch responses without consuming
+their bodies, including Auth.js requests, and suppresses requests in a known
+server wait. Scopes mirror backend keys/methods rather than individual endpoints.
+An account change discards previous deadlines; late responses from the previous
+account do not update the current registry. Deadlines are not persisted on reload
+or synchronized across tabs, so a new tab learns the remaining wait on its first
+429. Backend limits remain authoritative and are not changed by this UI.
+
+Countdowns cover their affected buttons without changing button dimensions;
+the original label remains underneath. There is no floating limit notice.
+Cancel, navigation, local previews and typing remain
+available. Searches retain their shared 500 ms debounce; known waits suppress
+requests without automatically replaying queries or mutations at expiry.
+Notification, AFK and join-sound selects disable only their save controls.
+Microphone/deafen and participant audio buttons subscribe to their existing
+shared 750 ms guard and visibly re-enable on expiry. Sound previews remain
+independent of public-play cooldowns. Message sending/editing uses the same
+deadline registry through `useMessageCooldown`, preserving drafts and Enter guards.
+
+Google/demo sign-in requests use Auth.js with redirect disabled initially, then
+navigate to the successful result URL. A 429 or failed handoff stays on the
+current page with retry feedback instead of navigating away from its countdown.
+
+User identity rows use the shared `Avatar` component and current profile image,
+including member settings, invitation pickers, mention suggestions and the help
+call preview. Initials are only the missing/failed-image fallback; these controls
+share the existing picture cache and image authorization flow.
+
 ### Visual rules and consistency
 
 `SwitchControl` is the shared immediate on/off preference control: a controlled

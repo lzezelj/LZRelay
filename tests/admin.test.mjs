@@ -26,6 +26,11 @@ async function moduleAt(path, dependencies, extra = {}) {
     {
       exports,
       require: (name) => {
+        if (name.endsWith("/server-activity"))
+          return {
+            recordServerActivity: async () => {},
+            recordDemoAccessChanges: async () => {},
+          };
         assert.ok(name in dependencies, `Unexpected dependency ${name}`);
         return dependencies[name];
       },

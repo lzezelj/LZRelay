@@ -11,6 +11,7 @@ import {
 import { readAvatar } from "../../../../../server/profile-pictures";
 import { checkRateLimit } from "../../../../../server/rate-limit";
 import { notifyUser } from "../../../../../server/notify-user";
+import { recordServerActivity } from "../../../../../server/server-activity";
 
 type Context = { params: Promise<{ serverId: string }> };
 const validId = (id: string) =>
@@ -114,6 +115,14 @@ async function change(request: Request, { params }: Context, remove: boolean) {
         .delete(serverPictures)
         .where(eq(serverPictures.serverId, serverId));
     await tx.update(servers).set({ image }).where(eq(servers.id, serverId));
+    await recordServerActivity(
+      tx,
+      serverId,
+      session.user.id,
+      remove ? "server.picture-remove" : "server.picture",
+      "server",
+      serverId,
+    );
     return true;
   });
   if (!changed) return Response.json({ error: "Forbidden" }, { status: 403 });

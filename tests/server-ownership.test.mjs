@@ -88,6 +88,7 @@ function fixture({
         : []),
     ],
   };
+  const activities = [];
   const mutations = [],
     locks = [],
     notifications = [];
@@ -189,6 +190,9 @@ function fixture({
     transaction: async (callback) => callback(db),
   };
   const dependencies = {
+    "../../../../../server/server-activity": {
+      recordServerActivity: async (...args) => activities.push(args.slice(1)),
+    },
     "drizzle-orm": {
       and: (...args) => ({ op: "and", args }),
       eq: (...args) => ({ op: "eq", args }),
@@ -249,6 +253,7 @@ function fixture({
   );
   return {
     rows,
+    activities,
     mutations,
     locks,
     notifications,
@@ -326,6 +331,13 @@ test("server owners promote and demote moderators without changing global roles 
     200,
   );
   assert.equal(state.rows.serverMembers[1].role, "member");
+  assert.deepEqual(
+    state.activities.map((args) => args[2]),
+    ["member.role", "member.role"],
+  );
+  assert.equal(state.activities[0][5].previousRole, "member");
+  assert.equal(state.activities[0][5].role, "mod");
+  assert.equal(state.activities[1][5].role, "member");
 });
 
 test("moderator changes reject non-owners, demos, inactive or foreign members and ownership escalation", async () => {

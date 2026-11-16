@@ -15,6 +15,7 @@ import { createServerInvitations } from "../../../../../server/server-invitation
 import { notifyUser } from "../../../../../server/notify-user";
 import { checkRateLimit, rateLimits } from "../../../../../server/rate-limit";
 import { notifyServer } from "../../../../../server/notify-server";
+import { recordServerActivity } from "../../../../../server/server-activity";
 
 export async function PATCH(
   request: Request,
@@ -40,15 +41,17 @@ export async function PATCH(
       { error: "Choose another member and a member or moderator role." },
       { status: 400 },
     );
-  if (
-    !checkRateLimit(
-      `server-mutation:${session.user.id}`,
-      rateLimits.serverMutation,
-    ).allowed
-  )
+  const limit = checkRateLimit(
+    `server-mutation:${session.user.id}`,
+    rateLimits.serverMutation,
+  );
+  if (!limit.allowed)
     return NextResponse.json(
       { error: "Too many server changes. Try again shortly." },
-      { status: 429 },
+      {
+        status: 429,
+        headers: { "Retry-After": String(limit.retryAfterSeconds) },
+      },
     );
   const targetId = body.userId;
   const nextRole = body.role;
@@ -130,6 +133,16 @@ export async function PATCH(
         ),
       )
       .returning({ userId: serverMembers.userId, role: serverMembers.role });
+    if (updated && member.role !== nextRole)
+      await recordServerActivity(
+        tx,
+        serverId,
+        session.user.id,
+        "member.role",
+        "user",
+        targetId,
+        { previousRole: member.role, role: nextRole },
+      );
     return updated
       ? { ...updated, status: 200 }
       : { error: "The member changed. Refresh and try again.", status: 409 };
@@ -246,7 +259,7 @@ export async function DELETE(
     .where(
       and(
         eq(serverMembers.serverId, serverId),
-        eq(serverMembers.userId, body.userId),
+        eq(serverMembers.userId, body.userId!),
       ),
     );
   if (!target || target.role === "owner")
@@ -257,16 +270,44 @@ export async function DELETE(
     .where(
       and(eq(channels.serverId, serverId), eq(channels.type, "voice_group")),
     );
-  const [removed] = await db
-    .delete(serverMembers)
-    .where(
-      and(
-        eq(serverMembers.serverId, serverId),
-        eq(serverMembers.userId, body.userId),
-        eq(serverMembers.role, target.role),
-      ),
-    )
-    .returning({ userId: serverMembers.userId });
+  const removed = await db.transaction(async (tx) => {
+    await tx
+      .select({ id: servers.id })
+      .from(servers)
+      .where(eq(servers.id, serverId))
+      .for("update");
+    const [currentOwner] = await tx
+      .select({ role: serverMembers.role })
+      .from(serverMembers)
+      .where(
+        and(
+          eq(serverMembers.serverId, serverId),
+          eq(serverMembers.userId, session.user.id),
+        ),
+      )
+      .for("update");
+    if (currentOwner?.role !== "owner") return undefined;
+    const [removed] = await tx
+      .delete(serverMembers)
+      .where(
+        and(
+          eq(serverMembers.serverId, serverId),
+          eq(serverMembers.userId, body.userId!),
+          eq(serverMembers.role, target.role),
+        ),
+      )
+      .returning({ userId: serverMembers.userId });
+    if (removed)
+      await recordServerActivity(
+        tx,
+        serverId,
+        session.user.id,
+        "member.kick",
+        "user",
+        removed.userId,
+      );
+    return removed;
+  });
   if (!removed)
     return NextResponse.json(
       { error: "The member's role changed. Refresh and try again." },
@@ -295,15 +336,17 @@ export async function POST(
   const session = await auth();
   if (!session)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (
-    !checkRateLimit(
-      `server-invitations:${session.user.id}`,
-      rateLimits.serverMutation,
-    ).allowed
-  )
+  const limit = checkRateLimit(
+    `server-invitations:${session.user.id}`,
+    rateLimits.serverMutation,
+  );
+  if (!limit.allowed)
     return NextResponse.json(
       { error: "Too many invitations. Try again shortly." },
-      { status: 429 },
+      {
+        status: 429,
+        headers: { "Retry-After": String(limit.retryAfterSeconds) },
+      },
     );
   const { serverId } = await params;
   const body = (await request.json().catch(() => null)) as {

@@ -4,6 +4,7 @@ import { auth } from "../../../../../auth";
 import { db } from "../../../../../db";
 import { channels, serverMembers, servers } from "../../../../../db/schema";
 import { checkRateLimit, rateLimits } from "../../../../../server/rate-limit";
+import { recordServerActivity } from "../../../../../server/server-activity";
 
 export async function POST(
   request: Request,
@@ -139,6 +140,18 @@ export async function POST(
           status:
             response.status === 404 ? 404 : response.status === 409 ? 409 : 502,
         },
+      );
+    if (!selfAfk)
+      await db.transaction((tx) =>
+        recordServerActivity(
+          tx,
+          serverId,
+          session.user.id,
+          "voice.move",
+          "user",
+          body!.userId!,
+          { channelId: source.id, destinationId: destination.id },
+        ),
       );
     return NextResponse.json({ ok: true });
   } catch {

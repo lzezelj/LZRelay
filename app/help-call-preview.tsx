@@ -2,15 +2,18 @@
 
 import { useEffect, useRef } from "react";
 import { DeviceMenu } from "./device-menu";
+import { Avatar } from "./avatar";
 import { SettingsIcon } from "./settings-modal";
 
 const inactive = () => {};
 export function HelpCallPreview({
   name = "You",
+  image,
   status = "Online",
   statusCode = "online",
 }: {
   name?: string;
+  image?: string | null;
   status?: string;
   statusCode?: string;
 }) {
@@ -105,9 +108,7 @@ export function HelpCallPreview({
         </button>
       </div>
       <div className="helpPreviewProfile">
-        <span className="helpPreviewAvatar" aria-hidden="true">
-          {name[0]?.toUpperCase() ?? "Y"}
-        </span>
+        <Avatar name={name} image={image} className="helpPreviewAvatar" />
         <span className="helpPreviewIdentity">
           <strong>{name}</strong>
           <small>

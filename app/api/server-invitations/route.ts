@@ -84,6 +84,8 @@ export async function GET() {
   );
 }
 
+import { recordServerActivity } from "../../../server/server-activity";
+
 export async function PATCH(request: Request) {
   const session = await auth();
   if (!session)
@@ -99,15 +101,17 @@ export async function PATCH(request: Request) {
       { error: "Invalid invitation action" },
       { status: 400 },
     );
-  if (
-    !checkRateLimit(
-      `server-invitation-action:${session.user.id}`,
-      rateLimits.serverMutation,
-    ).allowed
-  )
+  const limit = checkRateLimit(
+    `server-invitation-action:${session.user.id}`,
+    rateLimits.serverMutation,
+  );
+  if (!limit.allowed)
     return Response.json(
       { error: "Too many changes. Try again shortly." },
-      { status: 429 },
+      {
+        status: 429,
+        headers: { "Retry-After": String(limit.retryAfterSeconds) },
+      },
     );
   const [initial] = await db
     .select()
@@ -171,6 +175,15 @@ export async function PATCH(request: Request) {
     await tx
       .delete(serverInvitations)
       .where(eq(serverInvitations.id, invite.id));
+    if (body.action === "cancel")
+      await recordServerActivity(
+        tx,
+        invite.serverId,
+        session.user.id,
+        "member.invite-cancel",
+        "user",
+        invite.recipientId,
+      );
     return {
       serverId: invite.serverId,
       inviterId: invite.inviterId,

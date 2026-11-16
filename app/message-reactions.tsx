@@ -1,4 +1,5 @@
 "use client";
+import { RateLimitButton } from "./rate-limit-controls";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { EmojiPicker } from "./emoji-picker";
 import type { MessageReaction } from "./emoji-catalog";
@@ -58,6 +59,7 @@ export function MessageReactionMenu(
   return (
     <>
       <EmojiPicker
+        rateLimitScope="reaction"
         label="React"
         menuItem
         disabled={busy}
@@ -182,7 +184,8 @@ function ReactionDetails(props: ReactionProps & { onClose: () => void }) {
               {person.me && <small> (you)</small>}
             </span>
             {person.me && (
-              <button
+              <RateLimitButton
+                scope="reaction"
                 type="button"
                 className="reactionRemove danger"
                 disabled={busy}
@@ -202,7 +205,7 @@ function ReactionDetails(props: ReactionProps & { onClose: () => void }) {
                 >
                   <path d="m6 6 12 12M18 6 6 18" />
                 </svg>
-              </button>
+              </RateLimitButton>
             )}
           </li>
         ))}

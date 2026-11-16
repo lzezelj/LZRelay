@@ -18,6 +18,8 @@ async function moduleAt(path, deps = {}, globals = {}) {
     {
       exports,
       require: (name) => {
+        if (name.endsWith("/server-activity"))
+          return deps[name] ?? { recordServerActivity: async () => {} };
         assert.ok(name in deps, name);
         return deps[name];
       },
@@ -475,6 +477,7 @@ async function customRoute({
   limited = false,
   existing = true,
 } = {}) {
+  const activities = [];
   const members = { userId: "userId", serverId: "memberServerId" };
   const servers = { id: "server.id" };
   const sounds = Object.fromEntries(
@@ -570,6 +573,9 @@ async function customRoute({
   const route = await moduleAt(
     "../app/api/servers/[serverId]/soundboard/route.ts",
     {
+      "../../../../../server/server-activity": {
+        recordServerActivity: async (...args) => activities.push(args.slice(1)),
+      },
       "drizzle-orm": {
         and: (...args) => args,
         eq: (...args) => args,
@@ -596,7 +602,7 @@ async function customRoute({
       },
     },
   );
-  return { route, writes, predicates, locks, notifications };
+  return { route, writes, predicates, locks, notifications, activities };
 }
 const params = { params: Promise.resolve({ serverId }) };
 const uploadRequest = (
@@ -843,6 +849,8 @@ test("uploads persist validated bytes and metadata; deletion and audio reads are
     [{ userId: "actor", type: "soundboard-updated", serverId }],
   );
   const sound = await response.json();
+  assert.equal(fixture.activities[0][2], "sound.create");
+  assert.equal(fixture.activities[0][4], sound.id);
   assert.equal(sound.custom, true);
   assert.equal(sound.durationMs, 600);
   assert.ok(!("audio" in sound));
@@ -872,6 +880,8 @@ test("uploads persist validated bytes and metadata; deletion and audio reads are
   );
   const reader = await customRoute({ role: "member" });
   assert.equal(deletion.notifications[0].type, "soundboard-updated");
+  assert.equal(deletion.activities[0][2], "sound.delete");
+  assert.equal(deletion.activities[0][4], clipId);
   const audio = await reader.route.GET(
     new Request(`https://lc.test/soundboard?clip=${clipId}`),
     params,

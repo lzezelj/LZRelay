@@ -1,4 +1,5 @@
 "use client";
+import { RateLimitButton } from "./rate-limit-controls";
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
@@ -99,7 +100,9 @@ export function VoiceParticipantMenu({
           {onServerChange && (
             <div className="participantAudioControls">
               <small>Server controls · everyone in this server</small>
-              <button
+              <RateLimitButton
+                scope="voice-moderation"
+                voiceCooldown
                 type="button"
                 role="menuitemcheckbox"
                 aria-checked={Boolean(serverPolicy?.voiceMuted)}
@@ -109,8 +112,10 @@ export function VoiceParticipantMenu({
                 }
               >
                 {serverPolicy?.voiceMuted ? "Server unmute" : "Server mute"}
-              </button>
-              <button
+              </RateLimitButton>
+              <RateLimitButton
+                scope="voice-moderation"
+                voiceCooldown
                 type="button"
                 role="menuitemcheckbox"
                 aria-checked={Boolean(serverPolicy?.voiceDeafened)}
@@ -122,7 +127,7 @@ export function VoiceParticipantMenu({
                 {serverPolicy?.voiceDeafened
                   ? "Server undeafen"
                   : "Server deafen"}
-              </button>
+              </RateLimitButton>
               <small>
                 Server deafen blocks incoming media as well as outgoing audio.
               </small>
@@ -183,7 +188,8 @@ export function VoiceParticipantMenu({
                     aria-label="Move to voice channel"
                   >
                     {channels.map((channel) => (
-                      <button
+                      <RateLimitButton
+                        scope="voice-move"
                         type="button"
                         role="menuitem"
                         key={channel.id}
@@ -193,7 +199,7 @@ export function VoiceParticipantMenu({
                         }}
                       >
                         {channel.name}
-                      </button>
+                      </RateLimitButton>
                     ))}
                   </div>
                 )}

@@ -4,6 +4,56 @@ Server pictures/invitations, membership lifecycle, online/Away/AFK state, channe
 
 [Architecture overview](../../ARCHITECTURE.md) · Related: [Authentication and authorization](authentication.md), [Notifications and activity](notifications.md), [Voice sessions and transports](voice-and-media.md), [Workspace UI and navigation](ui.md), [Database and persistence](database.md).
 
+## Server activity history
+
+Server settings → Activity log exposes the last 90 days of privileged actions
+to current server owners and moderators only. GET `/api/servers/{id}/activity`
+checks membership in the backend on every page, returns 50 entries with a
+timestamp/UUID cursor, and uses private/no-store responses. The cursor preserves
+PostgreSQL microseconds to prevent skipped rows. Refresh replaces the list;
+Load older entries paginates. The keyed client aborts obsolete requests and clears
+records on authorization errors. No permissions to perform moderation are expanded.
+Database failures return a no-store JSON 503 rather than an empty framework error
+response. The panel handles empty/non-JSON failures without exposing parser errors.
+Local development must apply migration `0034` too: rollback-based tests deliberately
+do not install migrations into the development database.
+
+Migration `0034_server_activity` adds server-scoped, indexed history. The
+`recordServerActivity` helper commits database changes and their records in the
+same transaction. Audit failures roll back those changes. Target/user identifiers
+have no user foreign keys; current profile names/images are resolved at read time,
+so account anonymization is reflected without retaining profile snapshots. Channel
+and sound labels may be retained for removed resources; arbitrary bodies, messages,
+credentials, email addresses, invitation tokens and media are excluded. Server
+deletion cascades history, so a deletion event has no surviving per-server viewer;
+the separate application admin audit retains its existing deletion contract.
+
+Coverage includes server creation/name/picture/AFK/cooldown/ownership, channel
+creation/name/deletion/order, moderator promotion/demotion, member kicks,
+invitations/cancellation, demo access assignment/removal, sound addition/removal,
+server mute/unmute/deafen/undeafen and voice move/disconnect requests. Applicable
+admin-dashboard changes mirror into this log without exposing the admin log.
+Deleting a managed demo user’s channel message records metadata only. Personal
+settings, playback, self-leave and automatic AFK self-moves are excluded. History
+starts at deployment; unrecorded past actions cannot be reconstructed.
+
+Voice policy records describe committed policy, even when immediate SFU sync
+fails. Voice moves record successful signaling delivery, not destination admission.
+Voice disconnect entries describe requests under the existing best-effort service
+semantics. Network side effects and audit writes are not atomic: service delivery
+can occur before a subsequent database error; there is no durable outbox or client
+completion acknowledgement. Do not interpret these rows as proof of completed
+media transitions. See [voice transports](voice-and-media.md).
+
+Reads/writes prune expired rows for that server and always hide older rows.
+Install the daily cleanup described in [operations](infrastructure.md#server-activity-retention)
+to remove expired rows from idle servers too. Backups expire under their separate
+retention policy; restore may reintroduce expired history until cleanup runs.
+
+Validation: `tests/server-activity.test.mjs` and
+`tests/server-activity.database.test.mjs`, alongside the existing server, sound,
+voice and admin regression suites. The database test uses rolled-back fixtures.
+
 ## Server pictures and pending invitations
 
 Server settings → Overview lets the server owner upload, crop or remove a server

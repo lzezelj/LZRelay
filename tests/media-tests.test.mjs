@@ -112,6 +112,8 @@ test("settings previews release captures on stop, device change, close, and late
     {
       exports,
       require: (name) => {
+        if (name.endsWith("/server-activity"))
+          return { recordServerActivity: async () => {} };
         assert.ok(name in dependencies);
         return dependencies[name];
       },

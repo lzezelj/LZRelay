@@ -1,4 +1,5 @@
 "use client";
+import { RateLimitButton } from "./rate-limit-controls";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { MessageAttachment } from "./attachment-types";
@@ -152,7 +153,8 @@ function ConversationSearchInput({ channelId, userId, onResult }: SearchProps) {
             if (value.trim().length >= 2) schedule(value.trim());
           }}
         />
-        <button
+        <RateLimitButton
+          scope="message-search"
           type="submit"
           aria-label="Search this conversation"
           disabled={query.trim().length < 2}
@@ -170,7 +172,7 @@ function ConversationSearchInput({ channelId, userId, onResult }: SearchProps) {
             <circle cx="10.5" cy="10.5" r="6.5" />
             <path d="m16 16 5 5" />
           </svg>
-        </button>
+        </RateLimitButton>
       </form>
       {open && (
         <section
@@ -195,7 +197,8 @@ function ConversationSearchInput({ channelId, userId, onResult }: SearchProps) {
           {error && <p role="alert">{error}</p>}
           {!busy && !error && !results.length && <p>No matching messages.</p>}
           {results.map((message) => (
-            <button
+            <RateLimitButton
+              scope="message-search"
               className="messageSearchResult"
               type="button"
               key={message.id}
@@ -212,18 +215,19 @@ function ConversationSearchInput({ channelId, userId, onResult }: SearchProps) {
                   message.attachments?.map((file) => file.name).join(", ") ||
                   "Attachment"}
               </p>
-            </button>
+            </RateLimitButton>
           ))}
           {busy && <p role="status">Searching…</p>}
           {cursor && (
-            <button
+            <RateLimitButton
+              scope="message-search"
               type="button"
               className="loadSearchResults"
               disabled={busy}
               onClick={() => void load(submitted, cursor)}
             >
               Load more results
-            </button>
+            </RateLimitButton>
           )}
         </section>
       )}

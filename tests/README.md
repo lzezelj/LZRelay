@@ -1,5 +1,23 @@
 # Test coverage
 
+`rate-limit-controls.test.mjs` checks deadline parsing/expiry, backend bucket
+mapping and account isolation. The `--server-invitations` browser mode also
+verifies shared disabled buttons, visible timers, panel remounts, expiry without
+automatic resending, centered overlays with stable button widths, removal of the
+floating notice and foreign-origin isolation. The same focused mode verifies
+message countdown overlays and the Enter/draft guard. `--participant-audio` checks
+the visible 750 ms audio guard; `--soundboard` checks the public-play badge and
+preserved local previews; `--message-composer` retains draft/Enter countdown checks.
+
+Server activity coverage runs in the default suite (`server-activity.test.mjs`)
+and database suite (`server-activity.database.test.mjs`). It checks scoped
+owner/moderator access, metadata filtering, precise cursor pagination, expiry,
+current profile images, server deletion and atomic mutation rollback when audit
+persistence fails. Database fixtures and any provisional table are rolled back.
+The `--server-invitations` browser mode also checks the activity panel on desktop
+and mobile: moderator navigation, profile pictures, named channels, pagination
+and clearing previously loaded entries after a forbidden refresh.
+
 Revocation coverage in signaling tests includes stale-token replay/restart,
 inactive-account/authority-error admission, in-flight admission revocation,
 periodic refresh failure, friends-only call cleanup and preservation of unrelated

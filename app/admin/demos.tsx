@@ -1,4 +1,5 @@
 "use client";
+import { RateLimitButton } from "../rate-limit-controls";
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { AdminList, adminRequest, type PendingAction } from "./dashboard";
@@ -95,7 +96,8 @@ export function DemoManagement({
         Manage demo accounts you created and access to servers you own. Demo
         accounts must retain at least one server.
       </p>
-      <button
+      <RateLimitButton
+        scope="admin-mutation"
         type="button"
         onClick={() => {
           let name = "",
@@ -131,7 +133,7 @@ export function DemoManagement({
         }}
       >
         Create demo account
-      </button>
+      </RateLimitButton>
       {invite && (
         <div className="adminDemoInvite">
           <strong>New invitation</strong>
@@ -180,7 +182,8 @@ export function DemoManagement({
               >
                 Go to user
               </button>
-              <button
+              <RateLimitButton
+                scope="admin-mutation"
                 type="button"
                 onClick={() => {
                   let ids = demo.servers.map((server) => server.id);
@@ -201,8 +204,9 @@ export function DemoManagement({
                 }}
               >
                 Server access
-              </button>
-              <button
+              </RateLimitButton>
+              <RateLimitButton
+                scope="admin-mutation"
                 type="button"
                 onClick={() => {
                   let name = demo.name;
@@ -232,8 +236,9 @@ export function DemoManagement({
                 }}
               >
                 Rename
-              </button>
-              <button
+              </RateLimitButton>
+              <RateLimitButton
+                scope="admin-mutation"
                 type="button"
                 onClick={() => {
                   let hours = 4;
@@ -265,8 +270,9 @@ export function DemoManagement({
                 }}
               >
                 Extend
-              </button>
-              <button
+              </RateLimitButton>
+              <RateLimitButton
+                scope="admin-mutation"
                 type="button"
                 onClick={() => {
                   let serverIds = demo.servers.map((server) => server.id);
@@ -287,8 +293,9 @@ export function DemoManagement({
                 }}
               >
                 New invitation
-              </button>
-              <button
+              </RateLimitButton>
+              <RateLimitButton
+                scope="admin-mutation"
                 type="button"
                 className="danger"
                 onClick={() =>
@@ -305,8 +312,9 @@ export function DemoManagement({
                 }
               >
                 Revoke
-              </button>
-              <button
+              </RateLimitButton>
+              <RateLimitButton
+                scope="admin-mutation"
                 type="button"
                 className="danger"
                 onClick={() => {
@@ -335,7 +343,7 @@ export function DemoManagement({
                 }}
               >
                 Delete
-              </button>
+              </RateLimitButton>
             </div>
           </article>
         ))}

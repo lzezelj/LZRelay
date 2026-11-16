@@ -61,6 +61,8 @@
   --shadow-dialog: 0 4px 12px #0004, 0 24px 64px #0006;
   color-scheme: dark;
 }
+.rateLimitBlocked { position: relative; opacity: .55; cursor: not-allowed; }
+.rateLimitCountdown { position: absolute; inset: 0; display: grid; place-items: center; padding: 0 2px; border-radius: inherit; color: var(--ink); background: var(--selection-background); font-size: var(--text-meta); font-weight: var(--weight-label); font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none; }
 
 * {
   box-sizing: border-box;
@@ -2128,6 +2130,16 @@ button.friendProfileCard:hover { background: #20283a; border-color: #657299; }
 .avatarImageReady > .avatarInitial { visibility: hidden; }
 @media (prefers-reduced-motion: reduce) { .avatarWithPlaceholder > img { transition: none; } }
 .userAvatarSmall { width: 20px; height: 20px; flex-basis: 20px; font-size: 10px; }
+.serverActivityList { display: grid; gap: 10px; margin: 16px 0; }
+.serverActivityRow { display: flex; align-items: flex-start; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+.serverActivityRow > div { min-width: 0; overflow-wrap: anywhere; }
+.serverActivityRow p { margin: 5px 0; }
+.serverActivityRow time { display: block; margin-top: 8px; color: var(--muted); font-size: 12px; }
+.serverActivityTarget { display: flex; align-items: center; gap: 7px; }
+.serverActivityDetails { display: grid; gap: 4px; margin: 8px 0; font-size: 12px; }
+.serverActivityDetails > div { display: flex; flex-wrap: wrap; gap: 6px; }
+.serverActivityDetails dt { color: var(--muted); }
+.serverActivityDetails dd { margin: 0; }
 .messageHeader .profileLink { display: inline-flex; align-items: center; gap: 8px; }
 .messageHeader { align-items: center; }
 .messageAuthorName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

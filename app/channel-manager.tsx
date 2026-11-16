@@ -1,4 +1,5 @@
 "use client";
+import { RateLimitButton } from "./rate-limit-controls";
 
 import { useState } from "react";
 import { SettingsNameForm } from "./settings-modal";
@@ -34,6 +35,7 @@ export function ChannelManager({
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<"text" | "voice">("text");
   const drag = useDragReorder({
+    rateLimitScope: "channel-order",
     items: channels.map((channel) => ({
       ...channel,
       group: channel.type === "text" ? "text" : "voice",
@@ -195,7 +197,8 @@ export function ChannelManager({
                         >
                           Cancel
                         </button>
-                        <button
+                        <RateLimitButton
+                          scope="server-mutation"
                           className="danger"
                           type="button"
                           disabled={busy}
@@ -217,7 +220,7 @@ export function ChannelManager({
                           }}
                         >
                           {busy ? "Deleting…" : "Confirm delete channel"}
-                        </button>
+                        </RateLimitButton>
                       </div>
                     </div>
                   )}

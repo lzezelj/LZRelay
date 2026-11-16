@@ -1,4 +1,5 @@
 "use client";
+import { RateLimitButton } from "./rate-limit-controls";
 
 import {
   FormEvent,
@@ -103,6 +104,7 @@ import { PersonalMessages, type PersonalMessage } from "./personal-messages";
 import { usePictureCache } from "./picture-cache-provider";
 import { AccountDeletion } from "./account-deletion";
 import { SettingsMembers } from "./settings-members";
+import { ServerActivity } from "./server-activity";
 import { SettingsNavigation } from "./settings-navigation";
 import { InformationHint } from "./information-hint";
 import { SettingsSection } from "./settings-section";
@@ -4845,12 +4847,14 @@ export default function Home() {
     (member) => member.id === session?.user.id && member.role === "owner",
   );
   const serverDrag = useDragReorder({
+    rateLimitScope: "server-order",
     items: servers,
     scope: `servers:${session?.user.id}:${friendsView}`,
     enabled: !!session,
     onReorder: moveServer,
   });
   const channelDrag = useDragReorder({
+    rateLimitScope: "channel-order",
     items: channels.map((channel) => ({
       ...channel,
       group: channel.type === "text" ? "text" : "voice",
@@ -5560,6 +5564,10 @@ export default function Home() {
               </p>
             )}
             <SettingsNavigation
+              canViewActivity={
+                !accountMenuOpen &&
+                (isSelectedServerOwner || isSelectedServerModerator)
+              }
               canUploadSounds={!accountMenuOpen && isSelectedServerModerator}
               account={accountMenuOpen}
               owner={
@@ -5570,7 +5578,9 @@ export default function Home() {
               selected={
                 accountMenuOpen
                   ? userSettingsSection
-                  : isSelectedServerOwner
+                  : isSelectedServerOwner ||
+                      (isSelectedServerModerator &&
+                        serverSettingsSection === "activity")
                     ? serverSettingsSection
                     : "join-sound"
               }
@@ -5689,6 +5699,9 @@ export default function Home() {
               />
             )}
           </>
+        ) : (isSelectedServerOwner || isSelectedServerModerator) &&
+          serverSettingsSection === "activity" ? (
+          <ServerActivity key={selectedServerId} serverId={selectedServerId} />
         ) : !isSelectedServerOwner ? (
           serverSoundSettings
         ) : (
@@ -5787,9 +5800,13 @@ export default function Home() {
                         </option>
                       </select>
                     </label>
-                    <button type="submit" className="primary">
+                    <RateLimitButton
+                      scope="server-mutation"
+                      type="submit"
+                      className="primary"
+                    >
                       Create channel
-                    </button>
+                    </RateLimitButton>
                   </form>
                 </section>
                 <section className="settingsSubpanel">
@@ -5994,13 +6011,14 @@ export default function Home() {
                   , including all its channels and messages. This cannot be
                   undone.
                 </p>
-                <button
+                <RateLimitButton
+                  scope="server-delete"
                   className="danger"
                   type="button"
                   onClick={() => void deleteServer()}
                 >
                   Permanently delete server
-                </button>
+                </RateLimitButton>
               </section>
             )}
           </>
@@ -6089,6 +6107,7 @@ export default function Home() {
       onStepChange={handleHelpStep}
       profile={{
         name: session.user.name ?? "You",
+        image: session.user.image,
         status: statusLabels[userStatus],
         statusCode: userStatus,
       }}
@@ -6205,13 +6224,14 @@ export default function Home() {
           <button type="button" onClick={() => setDeleteMessageCandidate(null)}>
             Cancel
           </button>
-          <button
+          <RateLimitButton
+            scope="direct-delete"
             className="danger"
             type="button"
             onClick={() => void deleteMessage()}
           >
             {permanentMessageDeletion ? "Delete permanently" : "Delete message"}
-          </button>
+          </RateLimitButton>
         </div>
       </section>
     </div>
@@ -6563,9 +6583,13 @@ export default function Home() {
               <button type="button" onClick={closeForm}>
                 Cancel
               </button>
-              <button className="primary" type="submit">
+              <RateLimitButton
+                scope="server-mutation"
+                className="primary"
+                type="submit"
+              >
                 Create
-              </button>
+              </RateLimitButton>
             </div>
           </form>
         </div>
@@ -6586,13 +6610,13 @@ export default function Home() {
               <button type="button" onClick={() => setKickCandidate(null)}>
                 Cancel
               </button>
-              <button
+              <RateLimitButton
                 className="danger"
                 type="button"
                 onClick={() => void kickMember(kickCandidate.id)}
               >
                 Kick from server
-              </button>
+              </RateLimitButton>
             </div>
           </section>
         </div>
@@ -6774,7 +6798,8 @@ export default function Home() {
                 )
               }
             >
-              <button
+              <RateLimitButton
+                scope="server-mutation"
                 className="workspaceButton"
                 aria-label="Create server"
                 onClick={() => {
@@ -6783,7 +6808,7 @@ export default function Home() {
                 }}
               >
                 +
-              </button>
+              </RateLimitButton>
               <span className="serverTooltip" role="tooltip">
                 Create a server
               </span>
@@ -7251,7 +7276,8 @@ export default function Home() {
                   progress={uploadProgress}
                   placeholder={`Message ${selectedFriend.name}`}
                 />
-                <button
+                <RateLimitButton
+                  scope="message"
                   data-chat-send
                   disabled={sendingMessage || messageCooldown.seconds > 0}
                   title={
@@ -7260,12 +7286,8 @@ export default function Home() {
                       : undefined
                   }
                 >
-                  {messageCooldown.seconds
-                    ? `Wait ${messageCooldown.seconds}s`
-                    : activeEdit
-                      ? "Edit"
-                      : "Send"}
-                </button>
+                  {activeEdit ? "Edit" : "Send"}
+                </RateLimitButton>
                 <button
                   type="button"
                   data-chat-jump-target
@@ -7591,7 +7613,9 @@ export default function Home() {
                     onChange={(event) => setFormName(event.target.value)}
                   />
                 </label>
-                <button type="submit">Create server</button>
+                <RateLimitButton scope="server-mutation" type="submit">
+                  Create server
+                </RateLimitButton>
                 <label className="inlineCheckbox">
                   <input
                     type="checkbox"
@@ -7681,13 +7705,14 @@ export default function Home() {
               )
             }
           >
-            <button
+            <RateLimitButton
+              scope="server-mutation"
               className="workspaceButton"
               aria-label="Create server"
               onClick={() => setForm("server")}
             >
               +
-            </button>
+            </RateLimitButton>
             <span className="serverTooltip" role="tooltip">
               Create a server
             </span>
@@ -8309,7 +8334,8 @@ export default function Home() {
                   </div>
                 )}
               </MessageComposer>
-              <button
+              <RateLimitButton
+                scope="message"
                 data-chat-send
                 disabled={
                   sendingMessage ||
@@ -8322,12 +8348,8 @@ export default function Home() {
                     : undefined
                 }
               >
-                {messageCooldown.seconds
-                  ? `Wait ${messageCooldown.seconds}s`
-                  : activeEdit
-                    ? "Edit"
-                    : "Send"}
-              </button>
+                {activeEdit ? "Edit" : "Send"}
+              </RateLimitButton>
             </form>
           </section>
         )}
@@ -8538,13 +8560,14 @@ export default function Home() {
               >
                 Cancel
               </button>
-              <button
+              <RateLimitButton
+                scope="server-delete"
                 className="danger"
                 type="button"
                 onClick={() => void deleteServer()}
               >
                 Delete server
-              </button>
+              </RateLimitButton>
             </div>
           </section>
         </div>

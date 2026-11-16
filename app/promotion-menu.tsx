@@ -1,4 +1,5 @@
 "use client";
+import { RateLimitButton } from "./rate-limit-controls";
 import { useId, useRef } from "react";
 import { InformationHint } from "./information-hint";
 
@@ -25,7 +26,8 @@ export function PromotionMenu({
   }
   return (
     <>
-      <button
+      <RateLimitButton
+        scope="server-mutation"
         type="button"
         className="promotionTrigger"
         disabled={disabled}
@@ -51,7 +53,7 @@ export function PromotionMenu({
         >
           <path d="m6 9 6 6 6-6" />
         </svg>
-      </button>
+      </RateLimitButton>
       <div
         id={id}
         ref={panel}
@@ -60,29 +62,35 @@ export function PromotionMenu({
         aria-label={`Promotion options for ${name}`}
       >
         <div className="promotionOption">
-          <button
+          <RateLimitButton
+            scope="server-mutation"
             type="button"
             disabled={moderatorDisabled}
             onClick={() => choose("mod")}
           >
             Moderator
-          </button>
+          </RateLimitButton>
           <InformationHint text="Moderators help manage this server without becoming its owner." />
         </div>
         <div className="promotionOption">
-          <button
+          <RateLimitButton
+            scope="server-mutation"
             type="button"
             disabled={ownerDisabled}
             onClick={() => choose("owner")}
           >
             Owner
-          </button>
+          </RateLimitButton>
           <InformationHint text="Transfers server ownership. You become a regular member and lose owner controls. Confirmation is required." />
         </div>
         {canDemote && (
-          <button type="button" onClick={() => choose("member")}>
+          <RateLimitButton
+            scope="server-mutation"
+            type="button"
+            onClick={() => choose("member")}
+          >
             Demote to member
-          </button>
+          </RateLimitButton>
         )}
       </div>
     </>

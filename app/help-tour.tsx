@@ -153,7 +153,12 @@ export function HelpTour({
   userId: string;
   requestKey: number;
   onStepChange?: (step: number | null) => void;
-  profile?: { name: string; status: string; statusCode: string };
+  profile?: {
+    name: string;
+    image?: string | null;
+    status: string;
+    statusCode: string;
+  };
 }) {
   const [phase, setPhase] = useState<"closed" | "tour" | "skipped">("closed");
   const [step, setStep] = useState(0);

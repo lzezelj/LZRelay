@@ -45,6 +45,8 @@ function fixture({
     if (op === "and") return args.every((arg) => matches(arg, row));
     if (op === "eq") return row[args[0]] === args[1];
     if (op === "isNull") return row[args[0]] === null;
+    if (op === "inArray" && Array.isArray(args[1]))
+      return args[1].includes(row[args[0]]);
     if (op === "inArray")
       return channelRows
         .filter((channel) => matches(args[1].predicate, channel))
@@ -80,12 +82,27 @@ function fixture({
     "../../../../../db": {
       db: {
         transaction: (run) => run(dependencies["../../../../../db"].db),
-        select: () => ({
+        select: (fields) => ({
           from: (table) => ({
             where: (predicate) =>
               table === "users"
                 ? Promise.resolve(ownedDemo ? [{ id: userId }] : [])
-                : { predicate },
+                : {
+                    predicate,
+                    then: (resolve, reject) =>
+                      Promise.resolve(
+                        channelRows
+                          .filter((row) => matches(predicate, row))
+                          .map((row) =>
+                            Object.fromEntries(
+                              Object.entries(fields).map(([key, column]) => [
+                                key,
+                                row[column],
+                              ]),
+                            ),
+                          ),
+                      ).then(resolve, reject),
+                  },
           }),
         }),
         update: () => ({
@@ -123,6 +140,8 @@ function fixture({
         notified.push(JSON.parse(request.body));
       },
       require: (key) => {
+        if (key.endsWith("/server-activity"))
+          return { recordServerActivity: async () => {} };
         assert.ok(key in dependencies, key);
         return dependencies[key];
       },

@@ -9,12 +9,15 @@ import {
   type KeyboardEvent,
 } from "react";
 import { moveRelative, type DropPlacement } from "../lib/list-order";
+import { useRateLimit } from "./rate-limit-controls";
+import type { LimitScope } from "./rate-limit-state";
 
 type Item = { id: string; name: string; group?: string };
 type Options = {
   items: readonly Item[];
   scope: string;
   enabled?: boolean;
+  rateLimitScope?: LimitScope;
   onReorder: (
     id: string,
     targetId: string,
@@ -43,6 +46,11 @@ type Drag = {
 };
 
 export function useDragReorder(options: Options) {
+  const limit = useRateLimit(options.rateLimitScope);
+  options = {
+    ...options,
+    enabled: options.enabled !== false && limit.seconds === 0,
+  };
   const listId = useId(),
     instructionsId = useId();
   const latest = useRef(options),

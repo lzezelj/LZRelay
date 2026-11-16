@@ -125,6 +125,27 @@ The final application container runs as an unprivileged `nextjs` user. Runtime
 dependencies are installed without development dependencies. Containers use
 `restart: unless-stopped`, so the stack returns after a host reboot.
 
+## Server activity retention
+
+After deploying migration `0034_server_activity`, install the idle-server cleanup
+timer from `/home/lc/apps/lc`:
+
+```bash
+sudo install -m 644 ops/lc-server-activity-prune.service ops/lc-server-activity-prune.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl start lc-server-activity-prune.service
+sudo systemctl enable --now lc-server-activity-prune.timer
+sudo systemctl list-timers lc-server-activity-prune.timer --all
+```
+
+The service uses Docker-private PostgreSQL, does not source or print secrets,
+and deletes only `server_activity` rows older than 90 days. It runs daily at
+03:30 Europe/Berlin, with a persistent catch-up run after downtime. Reads/writes
+also prune expired rows, and reads always exclude them. Physical cleanup on idle
+servers can lag expiry until the next daily run; do not claim exact-to-the-second
+erasure. The installer is not run by local development or deployment automatically.
+Existing database backup retention is independent; run cleanup after a restore.
+
 ## Configuration and secrets
 
 Development settings live in the ignored local `.env`. Production settings
@@ -151,9 +172,17 @@ issuance is limited to 120 requests per user per minute to accommodate the
 application's independently authenticated persistent, text, and direct-call
 sockets; LiveKit token issuance remains limited to 30 requests per user per
 minute. Rejections use
-HTTP 429 and a `Retry-After` header. Error bodies also include the remaining wait
-in seconds, using the same reset time, so existing client error notices explain
-when an action can be retried. Chat-send rejections instead disable Send with a
+HTTP 429 and a `Retry-After` header. Some error bodies also include the remaining
+wait; client countdowns use the authoritative header, accepting seconds or HTTP
+dates. Missing/malformed headers fall back to a one-second recoverable wait.
+All user-facing limited actions share account-scoped deadline feedback; controls
+show remaining waits centered over the buttons. Scopes match limiter keys
+across related endpoints, without predicting exhaustion from successful requests.
+Sound permits always reach the backend because each server can disable its play
+cooldown. Auth/session/ordinary reads without a limiter are not blocked. The
+provider intercepts only same-origin fetch requests and leaves response bodies
+available to callers. See [UI controls](ui.md#shared-controls-and-search-behavior).
+Chat-send rejections disable Send with a
 countdown based on Retry-After, shared across channel and DM composers. Enter
 submissions are also blocked until the deadline. Rejected sends retain the draft
 and are not automatically resent. This prevents ordinary burst spam but is

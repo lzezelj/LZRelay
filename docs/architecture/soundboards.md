@@ -135,6 +135,11 @@ requests. Changes notify only that server's members and do not restart calls.
 The browser defaults to enforcing the delay if policy loading fails. The backend
 reads the current server policy for every permit, so stale clients cannot bypass
 an enabled cooldown. Local preview and the single-active-clip rule are unchanged.
+Public Play buttons show the one-second countdown and honor longer `Retry-After`
+rejections through the shared action registry. Permit requests remain authoritative
+and reach the server even during a known wait when a per-server policy may bypass
+the delay. Local preview is not disabled by the public-play wait. Sound upload,
+removal and join-sound controls separately reflect their own API limiter buckets.
 
 Every published play, including a cache hit, requests
 POST `/api/servers/{serverId}/soundboard/play?clip={id}`. The API rechecks current

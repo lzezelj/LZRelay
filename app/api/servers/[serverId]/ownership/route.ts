@@ -6,6 +6,7 @@ import { serverMembers, servers, users } from "../../../../../db/schema";
 import { notifyServer } from "../../../../../server/notify-server";
 import { notifyUser } from "../../../../../server/notify-user";
 import { applyGroupModeration } from "../../../../../server/voice-moderation";
+import { recordServerActivity } from "../../../../../server/server-activity";
 import {
   checkRateLimit,
   rateLimitMessage,
@@ -150,6 +151,14 @@ export async function POST(
           eq(serverMembers.userId, targetId),
         ),
       );
+    await recordServerActivity(
+      tx,
+      serverId,
+      session.user.id,
+      "server.ownership",
+      "user",
+      targetId,
+    );
     return { ownerId: targetId, status: 200 };
   });
   if ("error" in result)

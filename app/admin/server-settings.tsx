@@ -1,4 +1,5 @@
 "use client";
+import { RateLimitButton } from "../rate-limit-controls";
 import { useEffect, useState } from "react";
 import { ProfilePictureSettings } from "../profile-picture-settings";
 import {
@@ -167,7 +168,8 @@ export function ServerSettings({
         }}
       />
       <div className="adminToolbar">
-        <button
+        <RateLimitButton
+          scope="admin-mutation"
           type="button"
           onClick={() =>
             confirm({
@@ -192,8 +194,9 @@ export function ServerSettings({
           {server.soundboardCooldownEnabled === false
             ? "Enable soundboard cooldown"
             : "Remove soundboard cooldown"}
-        </button>
-        <button
+        </RateLimitButton>
+        <RateLimitButton
+          scope="admin-mutation"
           type="button"
           onClick={() => {
             let name = server.name;
@@ -225,8 +228,9 @@ export function ServerSettings({
           }}
         >
           Rename server
-        </button>
-        <button
+        </RateLimitButton>
+        <RateLimitButton
+          scope="admin-mutation"
           type="button"
           onClick={() => {
             let settings: {
@@ -260,8 +264,9 @@ export function ServerSettings({
           }}
         >
           AFK settings
-        </button>
-        <button
+        </RateLimitButton>
+        <RateLimitButton
+          scope="admin-mutation"
           type="button"
           onClick={() => {
             let ownerId = "";
@@ -313,8 +318,9 @@ export function ServerSettings({
           }}
         >
           Transfer ownership
-        </button>
-        <button
+        </RateLimitButton>
+        <RateLimitButton
+          scope="admin-mutation"
           type="button"
           className="danger"
           onClick={() => {
@@ -345,7 +351,7 @@ export function ServerSettings({
           }}
         >
           Delete server
-        </button>
+        </RateLimitButton>
       </div>
     </section>
   );

@@ -1,4 +1,5 @@
 "use client";
+import { RateLimitButton } from "./rate-limit-controls";
 import { useState } from "react";
 import { takeVoiceToggle } from "./voice-toggle-cooldown";
 
@@ -37,7 +38,8 @@ export function ParticipantAudioControls({
     <div className="participantAudioControls">
       <small>Personal audio controls</small>
       <div className="participantAudioActions">
-        <button
+        <RateLimitButton
+          voiceCooldown
           type="button"
           role="menuitemcheckbox"
           aria-checked={value.muted}
@@ -46,8 +48,9 @@ export function ParticipantAudioControls({
           }}
         >
           {value.muted ? "Unmute person" : "Mute person"}
-        </button>
-        <button
+        </RateLimitButton>
+        <RateLimitButton
+          voiceCooldown
           type="button"
           role="menuitemcheckbox"
           aria-checked={Boolean(value.deafened)}
@@ -56,7 +59,7 @@ export function ParticipantAudioControls({
           }}
         >
           {value.deafened ? "Undeafen person" : "Deafen person"}
-        </button>
+        </RateLimitButton>
       </div>
       <small>
         Mute stops you hearing them. Deafen blocks audio both ways between you

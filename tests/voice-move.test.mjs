@@ -108,9 +108,11 @@ test("LiveKit moderation updates only the selected account in this server and re
 });
 
 async function moderationFixture(options = {}) {
+  const activities = [];
   const events = [],
     exports = {};
   const memberTable = new Proxy({}, { get: (_, key) => key });
+  const serverTable = { id: "id" };
   const rows = [
     {
       userId: actor,
@@ -137,9 +139,14 @@ async function moderationFixture(options = {}) {
       : row[predicate.args[0]] === predicate.args[1];
   const db = {
     select: () => ({
-      from: () => ({
+      from: (table) => ({
         where: (predicate) => {
-          const result = rows.filter((row) => matches(predicate, row));
+          const result =
+            table === serverTable
+              ? [{ id: serverId }]
+              : rows
+                  .filter((row) => matches(predicate, row))
+                  .map((row) => ({ ...row }));
           return {
             then: (resolve) => Promise.resolve(result).then(resolve),
             for: async () => result,
@@ -175,7 +182,10 @@ async function moderationFixture(options = {}) {
       auth: async () => (options.unauthorized ? null : { user: { id: actor } }),
     },
     "../../../../../db": { db },
-    "../../../../../db/schema": { serverMembers: memberTable },
+    "../../../../../db/schema": {
+      serverMembers: memberTable,
+      servers: serverTable,
+    },
     "../../../../../server/rate-limit": {
       checkRateLimit: () => ({ allowed: !options.limited }),
     },
@@ -212,6 +222,11 @@ async function moderationFixture(options = {}) {
       exports,
       Response,
       require: (name) => {
+        if (name.endsWith("/server-activity"))
+          return {
+            recordServerActivity: async (...args) =>
+              activities.push(args.slice(1)),
+          };
         assert.ok(name in dependencies, name);
         return dependencies[name];
       },
@@ -220,6 +235,7 @@ async function moderationFixture(options = {}) {
   const context = { params: Promise.resolve({ serverId }) };
   return {
     rows,
+    activities,
     events,
     get: () => exports.GET(null, context),
     run: (body = { userId, voiceMuted: true }) =>
@@ -291,8 +307,18 @@ test("voice moderation persists independent flags before SFU updates and sends o
   const failed = await moderationFixture({ mediaFailure: true });
   assert.equal((await (await failed.run()).json()).mediaSynced, false);
   assert.equal(failed.rows[1].voiceMuted, true);
+  assert.deepEqual(
+    f.activities.map((args) => args[2]),
+    ["voice.mute", "voice.deafen", "voice.unmute"],
+  );
+  assert.equal(
+    failed.activities[0][2],
+    "voice.mute",
+    "Committed policy is logged even when immediate media synchronization fails",
+  );
 });
 function fixture(options = {}) {
+  const activities = [];
   const tables = Object.fromEntries(
     ["channels", "serverMembers", "servers"].map((table) => [
       table,
@@ -354,6 +380,10 @@ function fixture(options = {}) {
               options.authenticated === false ? null : { user: { id: actor } },
           },
           "../../../../../db/schema": tables,
+          "../../../../../server/server-activity": {
+            recordServerActivity: async (...args) =>
+              activities.push(args.slice(1)),
+          },
           "../../../../../server/rate-limit": {
             rateLimits: { adminMutation: {} },
             checkRateLimit: () => ({
@@ -363,6 +393,7 @@ function fixture(options = {}) {
           },
           "../../../../../db": {
             db: {
+              transaction: async (callback) => callback({}),
               select: () => ({
                 from: (table) => ({
                   where: async (predicate) =>
@@ -376,6 +407,7 @@ function fixture(options = {}) {
   );
   return {
     requests,
+    activities,
     run: (body = { userId, channelId: sourceId, destinationId }) =>
       exports.POST(
         new Request("http://local/voice-move", {
@@ -432,6 +464,8 @@ test("AFK self-moves allow ordinary members only into their server's configured 
 test("voice move sends only the validated destination and reports delivery or capacity failures", async () => {
   const f = fixture();
   assert.equal((await f.run()).status, 200);
+  assert.equal(f.activities[0][2], "voice.move");
+  assert.equal(f.activities[0][5].destinationId, destinationId);
   assert.deepEqual(f.requests[0].body, {
     userId,
     roomId: sourceId,
@@ -448,8 +482,11 @@ test("voice move sends only the validated destination and reports delivery or ca
     [{ status: 500 }, 502],
     [{ status: 426 }, 502],
     [{ networkError: true }, 502],
-  ])
-    assert.equal((await fixture(options).run()).status, status);
+  ]) {
+    const failed = fixture(options);
+    assert.equal((await failed.run()).status, status);
+    assert.equal(failed.activities.length, 0);
+  }
   const unsupported = await fixture({ status: 426 }).run();
   assert.match(
     (await unsupported.json()).error,

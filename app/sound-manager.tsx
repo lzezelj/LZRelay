@@ -1,4 +1,5 @@
 "use client";
+import { RateLimitButton, useRateLimit } from "./rate-limit-controls";
 import { SettingsSection } from "./settings-section";
 import { InformationHint } from "./information-hint";
 import { SwitchControl } from "./switch-control";
@@ -570,7 +571,8 @@ export function SoundUploadDialog({
           <button type="button" onClick={onClose}>
             {saved ? "Done" : "Cancel"}
           </button>
-          <button
+          <RateLimitButton
+            scope="soundboard"
             type="submit"
             disabled={
               saving ||
@@ -581,7 +583,7 @@ export function SoundUploadDialog({
             }
           >
             {saving ? "Uploading…" : saved ? "Uploaded" : "Upload sound"}
-          </button>
+          </RateLimitButton>
         </div>
       </form>
     </SettingsModal>
@@ -601,6 +603,7 @@ export function SoundManager({
   onJoinSoundChange?: (soundId: string | null) => void;
   joinSoundOnly?: boolean;
 }) {
+  const joinLimit = useRateLimit("server-mutation");
   const [sounds, setSounds] = useState<Sound[]>([]);
   const [canManage, setCanManage] = useState(false);
   const [canUpload, setCanUpload] = useState(false);
@@ -716,7 +719,17 @@ export function SoundManager({
             <select
               aria-label="Voice channel join sound"
               value={joinSoundId ?? ""}
-              disabled={loading || savingJoinSound || Boolean(removing)}
+              disabled={
+                loading ||
+                savingJoinSound ||
+                Boolean(removing) ||
+                joinLimit.seconds > 0
+              }
+              title={
+                joinLimit.seconds
+                  ? `Available in ${joinLimit.seconds}s`
+                  : undefined
+              }
               onChange={(event) => void saveJoinSound(event.target.value)}
             >
               <option value="">Default</option>
@@ -735,13 +748,14 @@ export function SoundManager({
       {!joinSoundOnly && (
         <>
           {canUpload && (
-            <button
+            <RateLimitButton
+              scope="soundboard"
               className="primary"
               type="button"
               onClick={() => setUploadOpen(true)}
             >
               Add custom sound
-            </button>
+            </RateLimitButton>
           )}
           <input
             className="soundboardSearch"
@@ -777,7 +791,8 @@ export function SoundManager({
                     <SoundPreviewIcon />
                   </button>
                   {canManage && (
-                    <button
+                    <RateLimitButton
+                      scope="soundboard"
                       type="button"
                       className="danger"
                       disabled={Boolean(removing) || savingJoinSound}
@@ -785,7 +800,7 @@ export function SoundManager({
                       onClick={() => void remove(sound)}
                     >
                       {removing === sound.id ? "Removing…" : "Remove"}
-                    </button>
+                    </RateLimitButton>
                   )}
                 </div>
               ))}

@@ -238,6 +238,8 @@ async function fixture({
       exports,
       URL,
       require: (name) => {
+        if (name.endsWith("/server-activity"))
+          return { recordServerActivity: async () => {} };
         assert.ok(name in deps, name);
         return deps[name];
       },

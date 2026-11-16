@@ -1,9 +1,10 @@
 import { and, eq } from "drizzle-orm";
 import { auth } from "../../../../../auth";
 import { db } from "../../../../../db";
-import { serverMembers } from "../../../../../db/schema";
+import { serverMembers, servers } from "../../../../../db/schema";
 import { notifyUser } from "../../../../../server/notify-user";
 import { checkRateLimit } from "../../../../../server/rate-limit";
+import { recordServerActivity } from "../../../../../server/server-activity";
 import {
   applyGroupModeration,
   readVoicePolicies,
@@ -68,9 +69,18 @@ export async function PATCH(
   if (!rate.allowed)
     return Response.json(
       { error: "Too many moderation changes. Try again shortly." },
-      { status: 429 },
+      {
+        status: 429,
+        headers: { "Retry-After": String(rate.retryAfterSeconds) },
+      },
     );
   const result = await db.transaction(async (tx) => {
+    const [server] = await tx
+      .select({ id: servers.id })
+      .from(servers)
+      .where(eq(servers.id, serverId))
+      .for("update");
+    if (!server) return null;
     const [owner] = await tx
       .select({ role: serverMembers.role })
       .from(serverMembers)
@@ -83,7 +93,11 @@ export async function PATCH(
       .for("update");
     if (owner?.role !== "owner") return null;
     const [target] = await tx
-      .select({ role: serverMembers.role })
+      .select({
+        role: serverMembers.role,
+        voiceMuted: serverMembers.voiceMuted,
+        voiceDeafened: serverMembers.voiceDeafened,
+      })
       .from(serverMembers)
       .where(
         and(
@@ -114,6 +128,24 @@ export async function PATCH(
         voiceMuted: serverMembers.voiceMuted,
         voiceDeafened: serverMembers.voiceDeafened,
       });
+    if (target.voiceMuted !== policy.voiceMuted)
+      await recordServerActivity(
+        tx,
+        serverId,
+        session.user.id,
+        policy.voiceMuted ? "voice.mute" : "voice.unmute",
+        "user",
+        body.userId,
+      );
+    if (target.voiceDeafened !== policy.voiceDeafened)
+      await recordServerActivity(
+        tx,
+        serverId,
+        session.user.id,
+        policy.voiceDeafened ? "voice.deafen" : "voice.undeafen",
+        "user",
+        body.userId,
+      );
     return policy;
   });
   if (!result)

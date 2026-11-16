@@ -13,6 +13,7 @@ import { notifyServer } from "../../../server/notify-server";
 import { disconnectUserEverywhere } from "../../../server/disconnect-user";
 import { deleteServer } from "../../../server/delete-server";
 import { AdminError } from "../../../server/admin-error";
+import { recordServerActivity } from "../../../server/server-activity";
 
 export async function GET() {
   const session = await auth();
@@ -124,6 +125,15 @@ export async function POST(request: Request) {
         .where(eq(servers.id, serverId));
       afkChannelId = afk.id;
     }
+    await recordServerActivity(
+      tx,
+      serverId,
+      session.user.id,
+      "server.create",
+      "server",
+      serverId,
+      { name },
+    );
     return { afkChannelId };
   });
   if (!created)
@@ -188,7 +198,7 @@ export async function PATCH(request: Request) {
       );
     const result = await db.transaction(async (tx) => {
       const [owner] = await tx
-        .select({ id: servers.id })
+        .select({ id: servers.id, afkChannelId: servers.afkChannelId })
         .from(servers)
         .where(
           and(
@@ -205,6 +215,15 @@ export async function PATCH(request: Request) {
           .values({ serverId: owner.id, name: "AFK", type: "voice_group" })
           .returning({ id: channels.id });
         afkChannelId = channel.id;
+        await recordServerActivity(
+          tx,
+          owner.id,
+          session.user.id,
+          "channel.create",
+          "channel",
+          channel.id,
+          { name: "AFK", type: "voice_group" },
+        );
       } else if (afkChannelId) {
         const [channel] = await tx
           .select({ type: channels.type })
@@ -219,6 +238,16 @@ export async function PATCH(request: Request) {
         .update(servers)
         .set({ afkChannelId })
         .where(eq(servers.id, owner.id));
+      if (owner.afkChannelId !== afkChannelId)
+        await recordServerActivity(
+          tx,
+          owner.id,
+          session.user.id,
+          "server.afk",
+          "server",
+          owner.id,
+          { afkChannelId, previousAfkChannelId: owner.afkChannelId },
+        );
       return { id: owner.id, afkChannelId };
     });
     if (!result)
@@ -235,16 +264,35 @@ export async function PATCH(request: Request) {
       { error: "Server name must be 1-60 characters" },
       { status: 400 },
     );
-  const [server] = await db
-    .update(servers)
-    .set({ name })
-    .where(
-      and(
-        eq(servers.id, body.serverId),
-        eq(servers.createdBy, session.user.id),
-      ),
-    )
-    .returning({ id: servers.id, name: servers.name });
+  const server = await db.transaction(async (tx) => {
+    const [previous] = await tx
+      .select({ id: servers.id, name: servers.name })
+      .from(servers)
+      .where(
+        and(
+          eq(servers.id, body.serverId!),
+          eq(servers.createdBy, session.user.id),
+        ),
+      )
+      .for("update");
+    if (!previous) return null;
+    const [updated] = await tx
+      .update(servers)
+      .set({ name })
+      .where(eq(servers.id, previous.id))
+      .returning({ id: servers.id, name: servers.name });
+    if (previous.name !== name)
+      await recordServerActivity(
+        tx,
+        previous.id,
+        session.user.id,
+        "server.rename",
+        "server",
+        previous.id,
+        { name, previousName: previous.name },
+      );
+    return updated;
+  });
   if (!server)
     return NextResponse.json({ error: "Server not found" }, { status: 404 });
   void notifyServer(server.id);

@@ -1,4 +1,6 @@
 "use client";
+import { RateLimitButton } from "./rate-limit-controls";
+import { requestLimitScope, type LimitScope } from "./rate-limit-state";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Avatar } from "./avatar";
 import { SettingsModal } from "./settings-modal";
@@ -50,6 +52,7 @@ export async function prepareProfilePicture(
 }
 
 function ProfileCropEditor({
+  pictureScope,
   file,
   busy,
   error,
@@ -57,6 +60,7 @@ function ProfileCropEditor({
   onClose,
   kind = "profile",
 }: {
+  pictureScope?: LimitScope;
   file: File;
   busy: boolean;
   error: string;
@@ -218,14 +222,15 @@ function ProfileCropEditor({
         <button type="button" disabled={busy} onClick={onClose}>
           Cancel
         </button>
-        <button
+        <RateLimitButton
+          scope={pictureScope}
           type="button"
           className="primary"
           disabled={!image || busy}
           onClick={() => onSave(crop)}
         >
           {busy ? "Saving picture…" : "Save picture"}
-        </button>
+        </RateLimitButton>
       </div>
     </SettingsModal>
   );
@@ -248,6 +253,7 @@ export function ProfilePictureSettings({
   endpoint?: string;
   kind?: "profile" | "server";
 }) {
+  const pictureScope = requestLimitScope(endpoint, "PUT") ?? undefined;
   const input = useRef<HTMLInputElement>(null);
   const [selected, setSelected] = useState<File | null>(null);
   const [busy, setBusy] = useState(false),
@@ -301,21 +307,23 @@ export function ProfilePictureSettings({
         <Avatar name={name} image={image} showPlaceholder={kind === "server"} />
         <div className="profilePictureOptions">
           <div className="modalActions">
-            <button
+            <RateLimitButton
+              scope={pictureScope}
               type="button"
               disabled={busy}
               onClick={() => input.current?.click()}
             >
               Change picture
-            </button>
-            <button
+            </RateLimitButton>
+            <RateLimitButton
+              scope={pictureScope}
               type="button"
               className="danger"
               disabled={busy || !image}
               onClick={() => requestSave()}
             >
               Remove picture
-            </button>
+            </RateLimitButton>
           </div>
           <small>PNG, JPEG or WebP · up to 2 MB</small>
         </div>
@@ -350,6 +358,7 @@ export function ProfilePictureSettings({
       {error && <small role="alert">{error}</small>}
       {selected && (
         <ProfileCropEditor
+          pictureScope={pictureScope}
           kind={kind}
           file={selected}
           busy={busy}

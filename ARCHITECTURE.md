@@ -76,6 +76,7 @@ the high-volume media path uses LiveKit's dedicated RTC ports.
 | Signaling, direct/group call flow, handoff and reconnects | [Voice sessions and transports](docs/architecture/voice-and-media.md) |
 | Camera/screen capture, mirroring, devices and microphone processing | [Media capture and audio processing](docs/architecture/media-and-audio.md) |
 | Server/channel access, invitations, status/AFK and drag ordering | [Servers, channels and presence](docs/architecture/servers-and-presence.md) |
+| Owner/moderator activity history and retention | [Server activity](docs/architecture/servers-and-presence.md#server-activity-history) |
 | Workspace navigation, profiles, settings, panels and overlays | [Workspace UI and navigation](docs/architecture/ui.md) |
 | Unread/read state, mentions, notification sounds and typing | [Notifications and activity](docs/architecture/notifications.md) |
 | Sound upload/storage, playback, join sounds and quotas | [Server soundboards and join sounds](docs/architecture/soundboards.md) |
@@ -99,6 +100,10 @@ authorization and memory limits.
 Shared SwitchControl and SegmentedControl components own equivalent settings
 selection controls; their visual and interaction contracts live in the
 [UI guide](docs/architecture/ui.md#visual-rules-and-consistency).
+The account-scoped RateLimitProvider shares known API deadlines across action
+controls, panels and servers; RateLimitButton and useMessageCooldown present
+countdowns without changing backend budgets. See
+[shared UI controls](docs/architecture/ui.md#shared-controls-and-search-behavior).
 
 Next.js provides the React interface and server-side API routes. Its server
 responsibilities include:

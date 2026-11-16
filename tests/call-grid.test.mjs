@@ -377,6 +377,7 @@ function renderCall(state = {}, options = {}) {
       },
     },
     DeviceMenu: "DeviceMenu",
+    RateLimitButton: "button",
     StreamInfo: "StreamInfo",
     StreamVolume: "StreamVolume",
     SoundboardButton: "SoundboardButton",

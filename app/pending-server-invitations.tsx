@@ -1,4 +1,5 @@
 "use client";
+import { RateLimitButton } from "./rate-limit-controls";
 import { useState } from "react";
 import { Avatar } from "./avatar";
 import { LoadingSkeleton } from "./loading-skeleton";
@@ -54,7 +55,8 @@ export function PendingServerInvitations({
               ? (["accept", "decline"] as const)
               : (["cancel"] as const)
             ).map((action) => (
-              <button
+              <RateLimitButton
+                scope="server-invitation-action"
                 type="button"
                 key={action}
                 className={action === "accept" ? "" : "danger"}
@@ -80,7 +82,7 @@ export function PendingServerInvitations({
                   : action === "decline"
                     ? "Decline"
                     : "Cancel invite"}
-              </button>
+              </RateLimitButton>
             ))}
           </div>
         ))}

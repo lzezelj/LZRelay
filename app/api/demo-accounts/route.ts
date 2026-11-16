@@ -3,6 +3,7 @@ import { and, eq, inArray, lte } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { ownerSession as auth } from "../../../server/owner";
 import { auditAdmin } from "../../../server/admin-audit";
+import { recordDemoAccessChanges } from "../../../server/server-activity";
 import { db } from "../../../db";
 import { buildUserHandle } from "../../../user-handle";
 import {
@@ -350,6 +351,12 @@ export async function PATCH(request: Request) {
         ),
       );
     await db.transaction(async (tx) => {
+      await recordDemoAccessChanges(
+        tx,
+        session.user.id,
+        demoUser.id,
+        serverIds,
+      );
       await tx
         .delete(serverMembers)
         .where(eq(serverMembers.userId, demoUser.id));
@@ -421,6 +428,12 @@ export async function PATCH(request: Request) {
         .for("update");
       if (!account) return false;
       if (serverIds) {
+        await recordDemoAccessChanges(
+          tx,
+          session.user.id,
+          demoUser.id,
+          serverIds,
+        );
         await tx
           .delete(serverMembers)
           .where(eq(serverMembers.userId, demoUser.id));
@@ -503,6 +516,7 @@ export async function PATCH(request: Request) {
       .update(demoInvites)
       .set({ revokedAt })
       .where(eq(demoInvites.demoUserId, demoUser.id));
+    await recordDemoAccessChanges(tx, session.user.id, demoUser.id, []);
     await tx.delete(serverMembers).where(eq(serverMembers.userId, demoUser.id));
     await auditAdmin(tx, session.user.id, "demo.revoke", "user", demoUser.id, {
       userId: demoUser.id,
@@ -561,6 +575,7 @@ export async function DELETE(request: Request) {
     groupChannels.map((channel) => channel.id),
   );
   await db.transaction(async (tx) => {
+    await recordDemoAccessChanges(tx, session.user.id, demoUser.id, []);
     await tx.delete(serverMembers).where(eq(serverMembers.userId, demoUser.id));
     await tx.delete(demoInvites).where(eq(demoInvites.demoUserId, demoUser.id));
     await auditAdmin(

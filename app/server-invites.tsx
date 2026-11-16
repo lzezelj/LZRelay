@@ -1,5 +1,7 @@
 "use client";
+import { RateLimitButton } from "./rate-limit-controls";
 import { SettingsSection } from "./settings-section";
+import { Avatar } from "./avatar";
 
 import { useEffect, useRef, useState } from "react";
 import { formatUserHandle } from "../user-handle";
@@ -144,9 +146,11 @@ export function ServerInvites({
                 )
               }
             />
-            <span className="inviteAvatar" aria-hidden="true">
-              {person.name[0]?.toUpperCase() ?? "?"}
-            </span>
+            <Avatar
+              name={person.name}
+              image={person.image}
+              className="inviteAvatar"
+            />
             <span className="invitePersonIdentity">
               <b>{person.name}</b>
               <small>{formatUserHandle(person.handle)}</small>
@@ -174,7 +178,8 @@ export function ServerInvites({
       {notice && <p role="status">{notice}</p>}
       <div className="inviteActions">
         <span>{selected.length} selected</span>
-        <button
+        <RateLimitButton
+          scope="server-invitations"
           type="button"
           className="primary"
           disabled={busy || !selected.length}
@@ -212,7 +217,7 @@ export function ServerInvites({
           }}
         >
           {busy ? "Inviting…" : `Invite selected (${selected.length})`}
-        </button>
+        </RateLimitButton>
       </div>
     </SettingsSection>
   );

@@ -8,6 +8,7 @@ import {
 } from "../../../../../../lib/list-order";
 import { notifyUser } from "../../../../../../server/notify-user";
 import { checkRateLimit } from "../../../../../../server/rate-limit";
+import { recordServerActivity } from "../../../../../../server/server-activity";
 
 export async function POST(
   request: Request,
@@ -110,6 +111,16 @@ async function reorder(
         .update(channels)
         .set({ position })
         .where(and(eq(channels.serverId, serverId), eq(channels.id, row.id)));
+    if (next.some((row, index) => row.id !== group[index]?.id))
+      await recordServerActivity(
+        tx,
+        serverId,
+        session.user.id,
+        "channel.order",
+        "channel",
+        target.id,
+        { targetChannelId: destination.id, placement: body.placement },
+      );
     return { ids: next.map((row) => row.id) };
   });
   if ("error" in result)

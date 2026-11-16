@@ -1,6 +1,7 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "../db";
 import { serverInvitations, serverMembers, servers, users } from "../db/schema";
+import { recordServerActivity } from "./server-activity";
 
 export async function createServerInvitations(
   serverId: string,
@@ -74,6 +75,15 @@ export async function createServerInvitations(
         set: { inviterId, createdAt: new Date() },
       })
       .returning({ recipientId: serverInvitations.recipientId });
+    for (const invite of invited)
+      await recordServerActivity(
+        tx,
+        serverId,
+        inviterId,
+        "member.invite",
+        "user",
+        invite.recipientId,
+      );
     return { invited: invited.map((invite) => invite.recipientId) };
   });
 }

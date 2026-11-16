@@ -10,6 +10,7 @@ import {
 } from "../../../../../server/sound-upload";
 import { checkRateLimit } from "../../../../../server/rate-limit";
 import { notifyUser } from "../../../../../server/notify-user";
+import { recordServerActivity } from "../../../../../server/server-activity";
 
 async function notifyCatalog(serverId: string) {
   const members = await db
@@ -219,6 +220,15 @@ export async function POST(
         durationMs: valid.durationMs,
       })
       .returning(metadata);
+    await recordServerActivity(
+      tx,
+      serverId,
+      access.userId!,
+      "sound.create",
+      "sound",
+      sound.id,
+      { name },
+    );
     return NextResponse.json({ ...sound, custom: true }, { status: 201 });
   });
   if (response.ok) await notifyCatalog(serverId);
@@ -263,7 +273,17 @@ export async function DELETE(
       .where(
         and(eq(serverSounds.id, clip), eq(serverSounds.serverId, serverId)),
       )
-      .returning({ id: serverSounds.id });
+      .returning({ id: serverSounds.id, name: serverSounds.name });
+    if (removed)
+      await recordServerActivity(
+        tx,
+        serverId,
+        access.userId!,
+        "sound.delete",
+        "sound",
+        removed.id,
+        { name: removed.name },
+      );
     return removed
       ? NextResponse.json(removed)
       : NextResponse.json({ error: "Sound not found" }, { status: 404 });

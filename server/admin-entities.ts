@@ -10,6 +10,7 @@ import { notifyMessageRemovals } from "./message-removals";
 import { disconnectUserEverywhere } from "./disconnect-user";
 import { deleteServer } from "./delete-server";
 import { applyGroupModeration } from "./voice-moderation";
+import { recordServerActivity } from "./server-activity";
 
 export async function mutateAdminServer(
   body: Record<string, unknown>,
@@ -86,6 +87,7 @@ export async function mutateAdminServer(
         "server",
         String(server.id),
         { serverId: String(server.id) },
+        { name },
       );
       return server;
     }
@@ -95,6 +97,7 @@ export async function mutateAdminServer(
       )
     ).rows;
     if (!server) throw new AdminError("Server not found", 404);
+    let selectedAfkChannelId: string | null = null;
     if (action === "rename") {
       await tx.execute(sql`UPDATE servers SET name=${name} WHERE id=${id}`);
     } else if (action === "soundboard") {
@@ -132,6 +135,8 @@ export async function mutateAdminServer(
       await tx.execute(
         sql`UPDATE servers SET afk_channel_id=${afkChannelId} WHERE id=${id}`,
       );
+      selectedAfkChannelId =
+        afkChannelId === null ? null : String(afkChannelId);
     }
     await auditAdmin(
       tx,
@@ -144,6 +149,11 @@ export async function mutateAdminServer(
       "server",
       id,
       { serverId: id },
+      action === "rename"
+        ? { name, previousName: String(server.name) }
+        : action === "soundboard"
+          ? { enabled: Boolean(body.soundboardCooldownEnabled) }
+          : { afkChannelId: selectedAfkChannelId },
     );
     return { ...server, ...(action === "rename" ? { name } : {}) };
   });
@@ -323,6 +333,15 @@ export async function deleteAdminUser(
     await tx.execute(
       sql`DELETE FROM server_invitations WHERE recipient_id=${id} OR inviter_id=${id}`,
     );
+    for (const server of members)
+      await recordServerActivity(
+        tx,
+        String(server.id),
+        actorId,
+        "member.account-remove",
+        "user",
+        id,
+      );
     await tx.execute(sql`DELETE FROM server_members WHERE user_id=${id}`);
     await tx.execute(sql`DELETE FROM user_avatars WHERE user_id=${id}`);
     await tx.execute(

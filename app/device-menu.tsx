@@ -1,4 +1,5 @@
 "use client";
+import { RateLimitButton } from "./rate-limit-controls";
 
 import {
   useEffect,
@@ -123,7 +124,8 @@ export function DeviceMenu({
       className={`deviceControl ${open ? "open" : ""} ${disabled ? "mediaDisabled" : ""}`}
       ref={menu}
     >
-      <button
+      <RateLimitButton
+        voiceCooldown={kind !== "camera"}
         className="mediaToggle"
         disabled={unavailable || actionUnavailable}
         aria-pressed={disabled}
@@ -156,7 +158,7 @@ export function DeviceMenu({
         onClick={onAction}
       >
         <MediaIcon kind={kind} crossedOut={disabled} />
-      </button>
+      </RateLimitButton>
       <button
         className="deviceMenuTrigger"
         ref={trigger}

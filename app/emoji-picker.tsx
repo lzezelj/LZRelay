@@ -2,18 +2,25 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { emojiCatalog } from "./emoji-catalog";
+import { RateLimitButton, useRateLimit } from "./rate-limit-controls";
+import type { LimitScope } from "./rate-limit-state";
 
 export function EmojiPicker({
   onSelect,
   label = "Add emoji",
   disabled = false,
   menuItem = false,
+  rateLimitScope,
 }: {
   onSelect: (emoji: string) => void;
   label?: string;
   disabled?: boolean;
   menuItem?: boolean;
+  rateLimitScope?: LimitScope;
 }) {
+  const limit = useRateLimit(rateLimitScope);
+  const Trigger = rateLimitScope ? RateLimitButton : "button";
+  disabled = disabled || limit.seconds > 0;
   const [open, setOpen] = useState(false),
     [query, setQuery] = useState("");
   const [position, setPosition] = useState({ left: 8, top: 8 });
@@ -127,7 +134,8 @@ export function EmojiPicker({
         }
       }}
     >
-      <button
+      <Trigger
+        scope={rateLimitScope}
         type="button"
         ref={trigger}
         className={menuItem ? "reactionMenuTrigger" : "emojiTrigger"}
@@ -184,7 +192,7 @@ export function EmojiPicker({
             <path d="M8.5 8.5h.01M15.5 8.5h.01" strokeWidth="2.8" />
           </svg>
         )}
-      </button>
+      </Trigger>
       {open &&
         !disabled &&
         createPortal(

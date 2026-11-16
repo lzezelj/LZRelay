@@ -10,6 +10,7 @@ import {
 } from "react";
 import { mentionQuery, type MentionMember } from "./mentions";
 import { EmojiPicker } from "./emoji-picker";
+import { Avatar } from "./avatar";
 import { ImagePreview, VideoPreview } from "./message-attachments";
 import {
   attachmentAccept,
@@ -311,7 +312,11 @@ export function MessageComposer({
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => insertMention(member)}
             >
-              <span className="avatar">{member.name[0]?.toUpperCase()}</span>
+              <Avatar
+                name={member.name}
+                image={member.image}
+                className="avatar"
+              />
               <span>
                 <strong>{member.name}</strong>
                 {member.handle && <small>@{member.handle}</small>}

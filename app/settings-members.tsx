@@ -1,8 +1,10 @@
 "use client";
+import { RateLimitButton } from "./rate-limit-controls";
 import { SettingsSection } from "./settings-section";
 import { useState } from "react";
 import { PromotionMenu } from "./promotion-menu";
 import { compareServerMembers } from "./member-order";
+import { Avatar } from "./avatar";
 export function SettingsMembers({
   members,
   currentUserId,
@@ -15,6 +17,7 @@ export function SettingsMembers({
     id: string;
     name: string;
     role: string;
+    image?: string | null;
     canBeModerator?: boolean;
   }[];
   onTransfer?: (member: {
@@ -63,9 +66,11 @@ export function SettingsMembers({
       <div className="settingsMemberList">
         {visible.map((member) => (
           <div className="settingsMemberRow" key={member.id}>
-            <span className="inviteAvatar" aria-hidden="true">
-              {member.name[0]?.toUpperCase()}
-            </span>
+            <Avatar
+              name={member.name}
+              image={member.image}
+              className="inviteAvatar"
+            />
             <strong>
               {member.name}
               {member.id === currentUserId ? " (You)" : ""}{" "}
@@ -110,7 +115,7 @@ export function SettingsMembers({
                 />
               )}
               {onKick && member.role !== "owner" && (
-                <button
+                <RateLimitButton
                   type="button"
                   className="danger"
                   disabled={busy}
@@ -121,7 +126,7 @@ export function SettingsMembers({
                   }}
                 >
                   Kick
-                </button>
+                </RateLimitButton>
               )}
             </div>
             {candidate === member.id && (
@@ -148,7 +153,8 @@ export function SettingsMembers({
                   >
                     Cancel
                   </button>
-                  <button
+                  <RateLimitButton
+                    scope={kicking ? undefined : "server-mutation"}
                     type="button"
                     className="danger"
                     disabled={busy}
@@ -175,7 +181,7 @@ export function SettingsMembers({
                       : kicking
                         ? "Kick from server"
                         : "Confirm transfer ownership"}
-                  </button>
+                  </RateLimitButton>
                 </div>
               </div>
             )}

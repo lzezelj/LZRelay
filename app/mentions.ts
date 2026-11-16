@@ -3,6 +3,7 @@ export type MentionMember = {
   id: string;
   name: string;
   handle?: string | null;
+  image?: string | null;
 };
 const escape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const word = (value: string | undefined) =>

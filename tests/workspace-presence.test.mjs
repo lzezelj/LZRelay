@@ -19,6 +19,15 @@ async function moduleAt(path, dependencies = {}, globals = {}) {
     {
       exports,
       require: (name) => {
+        if (name.endsWith("/rate-limit-controls"))
+          return {
+            RateLimitButton: "button",
+            useRateLimit: () => ({
+              seconds: 0,
+              blocked: () => false,
+              observe() {},
+            }),
+          };
         assert.ok(name in dependencies, name);
         return dependencies[name];
       },

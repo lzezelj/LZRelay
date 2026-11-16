@@ -100,6 +100,11 @@ test("channel moves are owner-only within Text/Voice; server order is private to
           exports,
           Response,
           require: (name) => {
+            if (name.endsWith("/server-activity"))
+              return {
+                recordServerActivity: async () => {},
+                recordDemoAccessChanges: async () => {},
+              };
             assert.ok(name in dependencies, name);
             return dependencies[name];
           },
@@ -358,7 +363,14 @@ test("AFK creation returns the destination immediately; settings require the own
         ),
         { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
       ),
-      { exports: route, Response, require: (name) => dependencies[name] },
+      {
+        exports: route,
+        Response,
+        require: (name) =>
+          name.endsWith("/server-activity")
+            ? { recordServerActivity: async () => {} }
+            : dependencies[name],
+      },
     );
     const save = (options) =>
       route.PATCH(
@@ -539,6 +551,11 @@ test("video attachment migration permits 25 MiB, serves authorized PostgreSQL by
         Uint8Array,
         URL,
         require: (name) => {
+          if (name.endsWith("/server-activity"))
+            return {
+              recordServerActivity: async () => {},
+              recordDemoAccessChanges: async () => {},
+            };
           assert.ok(name in dependencies, name);
           return dependencies[name];
         },
@@ -631,6 +648,11 @@ test("server pictures persist privately for members and pending invitees, revoke
           Buffer,
           Uint8Array,
           require: (name) => {
+            if (name.endsWith("/server-activity"))
+              return {
+                recordServerActivity: async () => {},
+                recordDemoAccessChanges: async () => {},
+              };
             assert.ok(name in deps, name);
             return deps[name];
           },
@@ -813,6 +835,11 @@ test("pending server invitations grant access only on recipient acceptance and i
           exports,
           Response,
           require: (name) => {
+            if (name.endsWith("/server-activity"))
+              return {
+                recordServerActivity: async () => {},
+                recordDemoAccessChanges: async () => {},
+              };
             const deps = { "drizzle-orm": orm, ...extra };
             assert.ok(name in deps, name);
             return deps[name];
@@ -1250,6 +1277,11 @@ test("message reactions enforce conversation access, isolate actors, aggregate l
         URL,
         process: { env: {} },
         require: (name) => {
+          if (name.endsWith("/server-activity"))
+            return {
+              recordServerActivity: async () => {},
+              recordDemoAccessChanges: async () => {},
+            };
           assert.ok(name in deps, name);
           return deps[name];
         },
@@ -1455,6 +1487,11 @@ test("member join sounds are isolated by person and server and reset on sound de
         exports: route,
         URL,
         require: (name) => {
+          if (name.endsWith("/server-activity"))
+            return {
+              recordServerActivity: async () => {},
+              recordDemoAccessChanges: async () => {},
+            };
           assert.ok(name in dependencies, name);
           return dependencies[name];
         },
@@ -1676,6 +1713,11 @@ test("real PostgreSQL edit/search queries preserve files, enforce conversation s
         {
           exports,
           require: (name) => {
+            if (name.endsWith("/server-activity"))
+              return {
+                recordServerActivity: async () => {},
+                recordDemoAccessChanges: async () => {},
+              };
             assert.ok(name in deps, name);
             return deps[name];
           },

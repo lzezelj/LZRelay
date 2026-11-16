@@ -77,6 +77,8 @@ function fixture({
     {
       exports,
       require: (key) => {
+        if (key.endsWith("/server-activity"))
+          return { recordServerActivity: async () => {} };
         assert.ok(key in dependencies, key);
         return dependencies[key];
       },

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { auth } from "../../../../../auth";
 import { db } from "../../../../../db";
 import { channels, messages, servers, users } from "../../../../../db/schema";
+import { recordServerActivity } from "../../../../../server/server-activity";
 import {
   auditAdmin,
   type AdminTransaction,
@@ -107,6 +108,25 @@ export async function DELETE(
       ? await remove(db)
       : await db.transaction(async (tx) => {
           const deleted = await remove(tx);
+          if (deleted.length) {
+            const affected = await tx
+              .select({ serverId: channels.serverId })
+              .from(channels)
+              .where(
+                inArray(channels.id, [
+                  ...new Set(deleted.map((row) => row.channelId)),
+                ]),
+              );
+            for (const id of new Set(affected.map((row) => row.serverId)))
+              await recordServerActivity(
+                tx,
+                id,
+                session.user.id,
+                "message.bulk-delete",
+                "user",
+                userId,
+              );
+          }
           await auditAdmin(
             tx,
             session.user.id,

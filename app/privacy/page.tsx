@@ -18,7 +18,7 @@ export default function PrivacyPage() {
           ← Back to LZRelay
         </Link>
         <h1>Privacy notice</h1>
-        <p className="legalUpdated">Last updated: 26 October 2026</p>
+        <p className="legalUpdated">Last updated: 16 November 2026</p>
 
         <section>
           <h2>1. Controller</h2>
@@ -74,6 +74,13 @@ export default function PrivacyPage() {
               request metadata, timestamps, and diagnostic information may be
               processed temporarily to deliver the service, maintain network
               connections, prevent abuse, and diagnose failures.
+            </li>
+            <li>
+              <strong>Server activity:</strong> owner and moderator actions are
+              recorded with the actor, action, affected account or resource,
+              relevant setting changes and time. Server owners and moderators
+              can view their server’s activity for accountability. The log does
+              not copy message contents, call media or invitation tokens.
             </li>
           </ul>
         </section>
@@ -150,6 +157,13 @@ export default function PrivacyPage() {
 
         <section>
           <h2>8. Retention</h2>
+          <p>
+            Server activity is visible for 90 days. Expired records are removed
+            on log access and new activity; a daily cleanup also removes expired
+            records from inactive servers. Deleting a server deletes its
+            activity history. Existing database backups may retain older records
+            until those backups expire.
+          </p>
           <p>
             Attachments share a 2 GiB storage limit. When a new upload needs
             space, the oldest attachments more than 30 days old may be deleted

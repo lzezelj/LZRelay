@@ -1,4 +1,5 @@
 "use client";
+import { RateLimitButton } from "./rate-limit-controls";
 
 import { RefObject, useEffect, useRef, useState, type ReactNode } from "react";
 import {
@@ -1504,7 +1505,8 @@ export function GroupCall({
         )}
       </div>
       <div className="controls voiceDock" aria-busy={!joined || joining}>
-        <button
+        <RateLimitButton
+          scope={["signaling-token", "livekit-token"]}
           ref={joinButton}
           hidden={joined || joining || (autoJoin && !joinAttempted)}
           className="primary"
@@ -1512,7 +1514,7 @@ export function GroupCall({
           disabled={joining}
         >
           Join group channel
-        </button>
+        </RateLimitButton>
         <DeviceMenu
           kind="microphone"
           actionUnavailable={deafened || forcedMuted}

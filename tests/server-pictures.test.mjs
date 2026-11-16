@@ -153,6 +153,8 @@ async function fixture({
       Response,
       Uint8Array,
       require: (name) => {
+        if (name.endsWith("/server-activity"))
+          return { recordServerActivity: async () => {} };
         assert.ok(name in deps, name);
         return deps[name];
       },

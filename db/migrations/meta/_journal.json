@@ -239,6 +239,13 @@
       "when": 1794528000000,
       "tag": "0033_soundboard_cooldown",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1794787200000,
+      "tag": "0034_server_activity",
+      "breakpoints": true
     }
   ]
 }

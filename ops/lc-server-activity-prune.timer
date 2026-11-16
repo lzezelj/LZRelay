@@ -1,0 +1,10 @@
+[Unit]
+Description=LZRelay server activity cleanup daily at 03:30 Europe/Berlin
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 Europe/Berlin
+Persistent=true
+Unit=lc-server-activity-prune.service
+
+[Install]
+WantedBy=timers.target

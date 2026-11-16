@@ -1,5 +1,11 @@
 # Application administration
 
+Scoped server/channel dashboard actions also write the server’s activity log
+inside the mutation transaction. The admin audit remains independent and private;
+server log access does not grant dashboard access or message browsing. See
+[server activity](servers-and-presence.md#server-activity-history) for its narrower
+90-day retention, current-role visibility and metadata contract.
+
 [Architecture overview](../../ARCHITECTURE.md) · Related: [Authentication](authentication.md), [Messaging](messaging.md), [Servers and presence](servers-and-presence.md), [Database](database.md), [Workspace UI](ui.md).
 
 ## Access boundary

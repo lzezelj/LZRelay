@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { auth } from "../../../../../auth";
 import { db } from "../../../../../db";
 import { channels, serverMembers } from "../../../../../db/schema";
+import { recordServerActivity } from "../../../../../server/server-activity";
 
 export async function POST(
   request: Request,
@@ -108,5 +109,16 @@ export async function POST(
       });
     }
   }
+  await db.transaction((tx) =>
+    recordServerActivity(
+      tx,
+      serverId,
+      session.user.id,
+      "voice.kick",
+      "user",
+      body.userId!,
+      { channelId: channel.id },
+    ),
+  );
   return NextResponse.json({ ok: true });
 }

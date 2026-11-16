@@ -2,7 +2,8 @@ import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { auth } from "../../../../auth";
 import { db } from "../../../../db";
-import { messages, users } from "../../../../db/schema";
+import { channels, messages, users } from "../../../../db/schema";
+import { recordServerActivity } from "../../../../server/server-activity";
 import {
   auditAdmin,
   type AdminTransaction,
@@ -81,6 +82,22 @@ export async function DELETE(
               messageId,
               { userId: message.authorId, channelId: message.channelId },
             );
+          if (deleted.length) {
+            const [channel] = await tx
+              .select({ serverId: channels.serverId })
+              .from(channels)
+              .where(eq(channels.id, message.channelId));
+            if (channel)
+              await recordServerActivity(
+                tx,
+                channel.serverId,
+                session.user.id,
+                permanent ? "message.delete-permanently" : "message.delete",
+                "user",
+                message.authorId,
+                { channelId: message.channelId },
+              );
+          }
           return deleted;
         });
   if (!deleted) {

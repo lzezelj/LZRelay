@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { SettingsDestinations } from "./settings-destinations";
 import { SettingsSection } from "./settings-section";
+import { useRateLimit } from "./rate-limit-controls";
 import type {
   NotificationKind,
   NotificationPreference,
@@ -32,6 +33,7 @@ function NotificationPreferenceControls({
   preferences: NotificationPreference[];
   onSave: SavePreference;
 }) {
+  const limit = useRateLimit("notification-settings");
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     void Promise.resolve().then(() => setNow(Date.now()));
@@ -63,7 +65,8 @@ function NotificationPreferenceControls({
         <select
           aria-label={`${kind} notifications for ${item.name}`}
           value={value}
-          disabled={!!busy}
+          disabled={!!busy || limit.seconds > 0}
+          title={limit.seconds ? `Available in ${limit.seconds}s` : undefined}
           onChange={async (event) => {
             setBusy(key);
             setError("");
@@ -99,6 +102,7 @@ function NotificationPreferenceControls({
       <strong>{item.name}</strong>
       {error && <p role="alert">{error}</p>}
       {busy && <p role="status">Saving notification settings…</p>}
+      {limit.seconds > 0 && <small>Try again in {limit.seconds}s.</small>}
       {control("messages")}
       {control(scope === "server" ? "mentions" : "calls")}
     </section>

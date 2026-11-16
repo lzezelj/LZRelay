@@ -42,6 +42,36 @@ export const friendshipStatus = pgEnum("friendship_status", [
   "pending",
   "accepted",
 ]);
+// User/target IDs deliberately have no FK: history survives removal without
+// retaining profile snapshots. Deleting the server removes its activity.
+export const serverActivity = pgTable(
+  "server_activity",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    serverId: uuid("server_id")
+      .notNull()
+      .references((): AnyPgColumn => servers.id, { onDelete: "cascade" }),
+    actorId: uuid("actor_id").notNull(),
+    action: text("action").notNull(),
+    targetType: text("target_type").notNull(),
+    targetId: uuid("target_id").notNull(),
+    details: jsonb("details")
+      .$type<Record<string, string | boolean | null>>()
+      .default({})
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("server_activity_timeline_idx").on(
+      table.serverId,
+      table.createdAt,
+      table.id,
+    ),
+    index("server_activity_expiry_idx").on(table.createdAt),
+  ],
+);
 export const serverRole = pgEnum("server_role", ["owner", "member", "mod"]);
 export const channelType = pgEnum("channel_type", [
   "text",
